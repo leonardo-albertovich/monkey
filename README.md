@@ -40,7 +40,7 @@ Monkey requires the following components on runtime:
 
 ## Writing Scalable Web Services
 
-If you are interested into use [Monkey](http://monkey-project.com) as a base platform build scalable web services, we recommend you check our [Duda I/O](http://duda.io) project made for that purpose.
+If you are interested in using [Monkey](http://monkey-project.com) as a base platform to build scalable web services, we recommend you check our [Duda I/O](http://duda.io) project made for that purpose.
 
 ## Join us!
 

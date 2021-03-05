@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #define API_ADDR   "127.0.0.1"
-#define API_PORT   "8080"
+#define API_PORT   "80 h2c"
 
 /* Main context set as global so the signal handler can use it */
 mk_ctx_t *ctx;

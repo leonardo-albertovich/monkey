@@ -24,9 +24,14 @@
 #include <monkey/mk_stream.h>
 #include <monkey/mk_http2_settings.h>
 
-/* Connection was just upgraded */
-#define MK_HTTP2_UPGRADED               1
-#define MK_HTTP2_OK                     2
+#define MK_HTTP2_UNINITIALIZED            0
+#define MK_HTTP2_AWAITING_PREFACE         1
+#define MK_HTTP2_UPGRADED                 2 /* Connection was just upgraded */
+#define MK_HTTP2_SERVER_SETTINGS_SENT     3 /* Mostly something administrative */
+#define MK_HTTP2_AWAITING_CLIENT_SETTINGS 4
+
+#define MK_HTTP2_OK                       9999
+
 
 /*
  * The Client 'sent' the SETTINGS frame according to Section 6.5:
@@ -34,14 +39,21 @@
  * https://httpwg.github.io/specs/rfc7540.html#ConnectionHeader
  * https://httpwg.github.io/specs/rfc7540.html#SETTINGS
  */
-#define MK_HTTP2_CLIENT_SETTINGS        2
 
 
 
 /* A buffer chunk size */
-#define MK_HTTP2_CHUNK               4096
+#define MK_HTTP2_CHUNK                            4096
 
-#define MK_HTTP2_HEADER_SIZE            9 /* Frame header size */
+#define MK_HTTP2_DEFAULT_FLOW_CONTROL_WINDOW_SIZE 65535
+
+#define MK_HTTP2_MAX_FLOW_CONTROL_WINDOW_SIZE     2147483647
+
+#define MK_HTTP2_MAX_FRAME_SIZE                   16777215
+
+#define MK_HTTP2_DEFAULT_MAX_FRAME_SIZE           16384
+
+#define MK_HTTP2_MINIMUM_FRAME_SIZE               9 /* Frame header size */
 
 /*
  * 4.1 HTTP2 Frame format
@@ -58,12 +70,13 @@
  *
  */
 
-/* Structure to represent an incoming frame (not to write) */
+/* Structure to represent a frame, not the wire format */
 struct mk_http2_frame {
-    uint32_t  len_type;  /* (24 length + 8 type) */
+    uint32_t  length;
+    uint8_t   type;
     uint8_t   flags;
     uint32_t  stream_id;
-    void      *payload;
+    void     *payload;
 };
 
 /* a=target variable, b=bit number to act upon 0-n */
@@ -77,17 +90,8 @@ static inline uint32_t mk_http2_bitdec_32u(uint8_t *b)
 static inline uint32_t mk_http2_bitdec_stream_id(uint8_t *b)
 {
     uint32_t sid = mk_http2_bitdec_32u(b);
+
     return BIT_CLEAR(sid, 31);
-}
-
-static inline uint8_t mk_http2_frame_type(struct mk_http2_frame *f)
-{
-    return (uint8_t) (0xFFFFFF & f->len_type);
-}
-
-static inline uint32_t mk_http2_frame_len(struct mk_http2_frame *f)
-{
-    return (uint32_t) (f->len_type >> 8);
 }
 
 /* HTTP/2 General flags */
@@ -97,16 +101,16 @@ static inline uint32_t mk_http2_frame_len(struct mk_http2_frame *f)
 /*
  * HTTP/2 Frame types
  */
-#define MK_HTTP2_DATA                0x0   /* Section 6.1  */
-#define MK_HTTP2_HEADERS             0x1   /* Section 6.2  */
-#define MK_HTTP2_PRIORITY            0x2   /* Section 6.3  */
-#define MK_HTTP2_RST_STREAM          0x3   /* Section 6.4  */
-#define MK_HTTP2_SETTINGS            0x4   /* Section 6.5  */
-#define MK_HTTP2_PUSH_PROMISE        0x5   /* Section 6.6  */
-#define MK_HTTP2_PING                0x6   /* Section 6.7  */
-#define MK_HTTP2_GOAWAY              0x7   /* Section 6.8  */
-#define MK_HTTP2_WINDOW_UPDATE       0x8   /* Section 6.9  */
-#define MK_HTTP2_CONTINUATION        0x9   /* Section 6.10 */
+#define MK_HTTP2_DATA_FRAME                0x0   /* Section 6.1  */
+#define MK_HTTP2_HEADERS_FRAME             0x1   /* Section 6.2  */
+#define MK_HTTP2_PRIORITY_FRAME            0x2   /* Section 6.3  */
+#define MK_HTTP2_RST_STREAM_FRAME          0x3   /* Section 6.4  */
+#define MK_HTTP2_SETTINGS_FRAME            0x4   /* Section 6.5  */
+#define MK_HTTP2_PUSH_PROMISE_FRAME        0x5   /* Section 6.6  */
+#define MK_HTTP2_PING_FRAME                0x6   /* Section 6.7  */
+#define MK_HTTP2_GOAWAY_FRAME              0x7   /* Section 6.8  */
+#define MK_HTTP2_WINDOW_UPDATE_FRAME       0x8   /* Section 6.9  */
+#define MK_HTTP2_CONTINUATION_FRAME        0x9   /* Section 6.10 */
 
 /*
  * HTTP/2 Settings Parameters (Section 6.5.2)
@@ -170,13 +174,18 @@ struct mk_http2_session {
     /* Buffer used to read data */
     unsigned int buffer_size;
     unsigned int buffer_length;
-    char *buffer;
-    char buffer_fixed[MK_HTTP2_CHUNK];
+    uint8_t     *buffer;
+    uint8_t      buffer_fixed[MK_HTTP2_CHUNK];
 
     /* Session Settings */
-    struct mk_http2_settings settings;
+    struct mk_http2_settings remote_settings;
+    struct mk_http2_settings local_settings;
 
-    struct mk_stream stream_settings;
+    struct mk_stream stream;
 };
+
+#define mk_http2_session_get(conn)               \
+    (struct mk_http2_session *)                  \
+    (((void *) conn) + sizeof(struct mk_sched_conn))
 
 #endif

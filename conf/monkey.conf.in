@@ -16,6 +16,19 @@
     #
     # Listen 127.0.0.1:2001
     # Listen [::1]:2001
+    #
+    # Additionally, the Listen directove can have a series of protocol identifiers
+    # to enable or disable specific protocols and transport layers such as HTTP 1.1
+    # HTTP 2.0 and TLS e.g:
+    #
+    # To disable HTTP 1.1 and enable HTTP 2.0 over TLS :
+    # Listen 127.0.0.1:2001 !http h2
+    #
+    # To enable TLS in addition to the default HTTP 1.1 :
+    # Listen 127.0.0.1:2001 tls
+    #
+    # To enable HTTP 2.0 in addition to the default HTTP 1.1 over plaintext :
+    # Listen 127.0.0.1:2001 h2c
 
     Listen @MK_CONF_LISTEN@
 
