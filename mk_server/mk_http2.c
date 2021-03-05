@@ -115,13 +115,15 @@ static inline int mk_http2_handle_settings(struct mk_sched_conn *conn,
 
     h2s = mk_http2_session_get(conn);
 
-    if (0 != frame->stream_id) {
+    if (0 != frame->stream_id)
+    {
         MK_TRACE("SETTINGS ERROR, NON ZERO STREAM ID : %i\n", frame->stream_id);
 
         return MK_HTTP2_PROTOCOL_ERROR;
     }
 
-    if (MK_HTTP2_SETTINGS_ACK == frame->flags) {
+    if (MK_HTTP2_SETTINGS_ACK == frame->flags)
+    {
         /*
          * Nothing to do, the peer just received our SETTINGS and it's
          * sending an acknowledge.
@@ -129,7 +131,8 @@ static inline int mk_http2_handle_settings(struct mk_sched_conn *conn,
          * note: validate that frame length is zero.
          */
 
-        if (0 != frame->length) {
+        if (0 != frame->length)
+        {
             /*
              * This must he handled as a connection error, we must reply
              * with a FRAME_SIZE_ERROR. ref:
@@ -257,7 +260,8 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
 
     h2s = mk_http2_session_get(conn);
 
-    if (MK_HTTP2_MINIMUM_FRAME_SIZE <= h2s->buffer_length) {
+    if (MK_HTTP2_MINIMUM_FRAME_SIZE <= h2s->buffer_length)
+    {
         MK_H2_TRACE(conn, "HTTP/2 SESSION SETTINGS RECEIVED");
 
         /* Decode the frame header */
@@ -341,10 +345,12 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
         h2s->status = MK_HTTP2_AWAITING_PREFACE;
     }
 
-    if (0 == (h2s->buffer_size - h2s->buffer_length)) {
+    if (0 == (h2s->buffer_size - h2s->buffer_length))
+    {
         new_size = h2s->buffer_size + MK_HTTP2_CHUNK;
 
-        if (h2s->buffer == h2s->buffer_fixed) {
+        if (h2s->buffer == h2s->buffer_fixed)
+        {
             h2s->buffer = mk_mem_alloc(new_size);
 
             if (NULL == h2s->buffer) /* FIXME: send internal server error ? */
@@ -378,9 +384,11 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
 
     /* Read the incoming data */
     printf("TRYING TO READ : %d\n", h2s->buffer_size - h2s->buffer_length);
+
     bytes = mk_sched_conn_read(conn,
                                &h2s->buffer[h2s->buffer_length],
                                h2s->buffer_size - h2s->buffer_length);
+
     printf("AFTER READ : %d\n", bytes);
 
     if (0 == bytes)
@@ -441,18 +449,14 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
         MK_HTTP2_UPGRADED == h2s->status) /* Upgraded connections from HTTP/1.x
                                              requires the preface */
     {
-        if (h2s->buffer_length >= http2_preface.len) {
-printf("TESTING IF THE PREFACE IS PRESENT\n");
-
+        if (h2s->buffer_length >= http2_preface.len)
+        {
             if (memcmp(h2s->buffer,
                        http2_preface.data, http2_preface.len) != 0) {
                 MK_H2_TRACE(conn, "Invalid HTTP/2 preface");
-printf("PREFACE NOT PRESENT\n");
 
                 return 0;
             }
-
-printf("PREFACE IS PRESENT\n");
 
             MK_H2_TRACE(conn, "HTTP/2 preface OK");
 
@@ -494,7 +498,8 @@ printf("PREFACE IS PRESENT\n");
            h2s->buffer_length, MK_HTTP2_MINIMUM_FRAME_SIZE);
 
     /* Check that we have a minimum header size */
-    if (MK_HTTP2_MINIMUM_FRAME_SIZE > h2s->buffer_length) {
+    if (MK_HTTP2_MINIMUM_FRAME_SIZE > h2s->buffer_length)
+    {
         // MK_TRACE("HEADER FRAME incomplete %i/%i bytes",
         //          h2s->buffer_length, MK_HTTP2_MINIMUM_FRAME_SIZE);
         return 0;
