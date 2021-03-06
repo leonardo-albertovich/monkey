@@ -29,9 +29,14 @@
 #define MK_HTTP2_UPGRADED                 2 /* Connection was just upgraded */
 #define MK_HTTP2_SERVER_SETTINGS_SENT     3 /* Mostly something administrative */
 #define MK_HTTP2_AWAITING_CLIENT_SETTINGS 4
+#define MK_HTTP2_AWAITING_CLIENT_FRAMES   5
 
 #define MK_HTTP2_OK                       9999
 
+
+#define MK_HTTP2_INCOMPLETE_FRAME         -1
+#define MK_HTTP2_FRAME_ERROR              -2
+#define MK_HTTP2_FRAME_PROCESSED           0
 
 /*
  * The Client 'sent' the SETTINGS frame according to Section 6.5:
@@ -48,6 +53,8 @@
 #define MK_HTTP2_DEFAULT_FLOW_CONTROL_WINDOW_SIZE 65535
 
 #define MK_HTTP2_MAX_FLOW_CONTROL_WINDOW_SIZE     2147483647
+
+#define MK_HTTP2_MAX_WINDOW_SIZE_INCREMENT        MK_HTTP2_MAX_FLOW_CONTROL_WINDOW_SIZE
 
 #define MK_HTTP2_MAX_FRAME_SIZE                   16777215
 
@@ -82,16 +89,16 @@ struct mk_http2_frame {
 /* a=target variable, b=bit number to act upon 0-n */
 #define BIT_CLEAR(a,b) ((a) &= ~(1<<(b)))
 
-static inline uint32_t mk_http2_bitdec_32u(uint8_t *b)
-{
+static inline uint32_t mk_http2_bitdec_32u(uint8_t *b) {
     return (uint32_t) ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]);
 }
 
-static inline uint32_t mk_http2_bitdec_stream_id(uint8_t *b)
-{
+static inline uint32_t mk_http2_bitdec_stream_id(uint8_t *b) {
     uint32_t sid = mk_http2_bitdec_32u(b);
 
-    return BIT_CLEAR(sid, 31);
+    BIT_CLEAR(sid, 31);
+
+    return sid;
 }
 
 /* HTTP/2 General flags */

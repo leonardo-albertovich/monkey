@@ -42,10 +42,12 @@ struct mk_gmt_cache {
 int    mk_utils_utime2gmt(char **data, time_t date);
 time_t mk_utils_gmt2utime(char *date);
 
-int mk_buffer_cat(mk_ptr_t * p, char *buf1, int len1, char *buf2, int len2);
+int mk_buffer_cat(mk_ptr_t *p, char *buf1, int len1, char *buf2, int len2);
 
 char *mk_utils_url_decode(mk_ptr_t req_uri);
 void mk_utils_stacktrace(void);
+
+void mk_utils_hexdump(uint8_t *buffer, size_t buffer_length, size_t line_length);
 
 unsigned int mk_utils_gen_hash(const void *key, int len);
 

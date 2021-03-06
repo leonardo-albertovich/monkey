@@ -238,9 +238,11 @@ int mk_net_conn_write(struct mk_channel *channel,
         goto retry;
     }
 
-    if (channel->event->status & MK_EVENT_REGISTERED) {
-        /* We got a notification, remove the event registered */
-        ret = mk_event_del(sched->loop, channel->event);
+    if (channel->event->mask & MK_EVENT_WRITE) {
+        if (channel->event->status & MK_EVENT_REGISTERED) {
+            /* We got a notification, remove the event registered */
+            ret = mk_event_del(sched->loop, channel->event);
+        }
     }
 
     return total;

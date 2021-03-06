@@ -454,7 +454,6 @@ void mk_server_worker_loop(struct mk_server *server)
                     ret = mk_sched_event_read(conn, sched, server);
                 }
 
-
                 if (event->mask & MK_EVENT_CLOSE && ret != -1) {
                     MK_TRACE("[FD %i] Event CLOSE", event->fd);
                     ret = -1;
