@@ -24,12 +24,13 @@
 #include <monkey/mk_stream.h>
 #include <monkey/mk_http2_settings.h>
 
-#define MK_HTTP2_UNINITIALIZED            0
-#define MK_HTTP2_AWAITING_PREFACE         1
-#define MK_HTTP2_UPGRADED                 2 /* Connection was just upgraded */
-#define MK_HTTP2_SERVER_SETTINGS_SENT     3 /* Mostly something administrative */
-#define MK_HTTP2_AWAITING_CLIENT_SETTINGS 4
-#define MK_HTTP2_AWAITING_CLIENT_FRAMES   5
+#define MK_HTTP2_UNINITIALIZED                0
+#define MK_HTTP2_AWAITING_PREFACE             1
+#define MK_HTTP2_UPGRADED                     2 /* Connection was just upgraded */
+#define MK_HTTP2_SERVER_SETTINGS_SENT         3 /* Mostly something administrative */
+#define MK_HTTP2_AWAITING_CLIENT_SETTINGS     4
+#define MK_HTTP2_AWAITING_CLIENT_FRAMES       5
+#define MK_HTTP2_AWAITING_CONTINUATION_FRAME  6
 
 #define MK_HTTP2_OK                       9999
 
@@ -101,9 +102,40 @@ static inline uint32_t mk_http2_bitdec_stream_id(uint8_t *b) {
     return sid;
 }
 
+/*
+ * 6.0 SETTINGS Frame format
+ *
+ * +---------------+
+ * |Pad Length? (8)|
+ * +-+-------------+-----------------------------------------------+
+ * |E|                 Stream Dependency? (31)                     |
+ * +-+-------------+-----------------------------------------------+
+ * |  Weight? (8)  |
+ * +-+-------------+-----------------------------------------------+
+ * |                   Header Block Fragment (*)                 ...
+ * +---------------------------------------------------------------+
+ * |                           Padding (*)                       ...
+ * +---------------------------------------------------------------+
+ */
+
+struct mk_http2_headers_frame_payload {
+    uint8_t   pad_length;
+    uint32_t  stream_dependency;
+    uint8_t   weight;
+    uint8_t   header_block_fragment[];
+};
+
 /* HTTP/2 General flags */
 
+/* SETTINGS flags*/
 #define MK_HTTP2_SETTINGS_ACK        0x1
+
+/* HEADERS flags*/
+#define MK_HTTP2_HEADERS_END_STREAM  0x1
+#define MK_HTTP2_HEADERS_END_HEADERS 0x4
+#define MK_HTTP2_HEADERS_PADDED      0x8
+#define MK_HTTP2_HEADERS_PRIORITY    0x20
+
 
 /*
  * HTTP/2 Frame types
@@ -123,6 +155,13 @@ static inline uint32_t mk_http2_bitdec_stream_id(uint8_t *b) {
  * HTTP/2 Settings Parameters (Section 6.5.2)
  * ------------------------------------------
  */
+#define MK_HTTP2_STREAM_STATUS_IDLE               0x0 /* Section 5.1*/
+#define MK_HTTP2_STREAM_STATUS_RESERVED_LOCAL     0x1 /* Section 5.1*/
+#define MK_HTTP2_STREAM_STATUS_RESERVED_REMOTE    0x2 /* Section 5.1*/
+#define MK_HTTP2_STREAM_STATUS_OPEN               0x3 /* Section 5.1*/
+#define MK_HTTP2_STREAM_STATUS_HALF_CLOSED_LOCAL  0x4 /* Section 5.1*/
+#define MK_HTTP2_STREAM_STATUS_HALF_CLOSED_REMOTE 0x5 /* Section 5.1*/
+#define MK_HTTP2_STREAM_STATUS_CLOSED             0x6 /* Section 5.1*/
 
 /*
  * HTTP/2 Error codes
@@ -175,6 +214,29 @@ static inline uint32_t mk_http2_bitdec_stream_id(uint8_t *b) {
     mk_stream_set(NULL, MK_STREAM_RAW, &conn->channel,  \
                   buf, length, NULL, NULL, NULL, NULL)
 
+
+struct mk_http2_dynamic_table_entry {
+    struct mk_list _head;
+    uint32_t       id;
+    char          *name;
+    char          *value;
+    size_t         size;
+};
+
+struct mk_http2_dynamic_table {
+    struct mk_list entries;      /* list of dynamic table entries */
+    size_t         size;         /* pre-computed size of the entire table */
+};
+
+struct mk_http2_stream {
+    struct mk_list                 _head;
+    int                            id;
+    uint32_t                       status;
+    uint8_t                        rst_stream_received;
+    uint8_t                        end_stream_received;
+    struct mk_http2_dynamic_table *dynamic_table;
+};
+
 struct mk_http2_session {
     int status;
 
@@ -189,6 +251,11 @@ struct mk_http2_session {
     struct mk_http2_settings local_settings;
 
     struct mk_stream stream;
+
+    /* Protocol specific metadata */
+    uint32_t       expected_continuation_stream;
+    uint32_t       response_stream_sequence;
+    struct mk_list http2_streams;
 };
 
 #define mk_http2_session_get(conn)               \
