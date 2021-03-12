@@ -28,6 +28,8 @@ if(MK_HTTP2)
   set(src
     ${src}
     "mk_http2.c"
+    "mk_http2_dynamic_table.c"
+    "mk_http2_stream.c"
     )
 endif()
 

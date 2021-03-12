@@ -55,11 +55,11 @@ struct mk_http2_settings {
 };
 
 
-const struct mk_http2_settings MK_HTTP2_SETTINGS_DEFAULT =
+static const struct mk_http2_settings MK_HTTP2_SETTINGS_DEFAULT =
     {
         .header_table_size      = 4096,
         .enable_push            = 1,
-        .max_concurrent_streams = 64,
+        .max_concurrent_streams = 1,
         .initial_window_size    = 65535,
         .max_frame_size         = 16384, /* 6.5.2 -> 2^14 */
         .max_header_list_size   = UINT32_MAX,
@@ -78,8 +78,12 @@ const struct mk_http2_settings MK_HTTP2_SETTINGS_DEFAULT =
                                                         \
     /* SETTINGS_MAX_CONCURRENT_STREAMS  */              \
     "\x00\x03"                                          \
-    "\x00\x00\x00\x40"   /* value=64    */              \
-                                                        \
+    "\x00\x00\x00\x01"   /* value=1    */               \
+    /* By limiting this we force the processing to be
+     * serialized losing the benefits of the protocol
+     * but we are doing it just to work on one thing 
+     * at the same time
+     */                                                 \
     /* SETTINGS_INITIAL_WINDOW_SIZE     */              \
     "\x00\x04"                                          \
     "\x00\x00\xff\xff"   /* value=65535 */

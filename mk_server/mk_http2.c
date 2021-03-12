@@ -22,214 +22,11 @@
 #include <inttypes.h>
 
 #include <monkey/mk_http2.h>
+#include <monkey/mk_http2_stream.h>
 #include <monkey/mk_http2_settings.h>
 #include <monkey/mk_header.h>
 #include <monkey/mk_utils.h>
 #include <monkey/mk_scheduler.h>
-
-/* HTTP/2 Connection Preface */
-#define MK_HTTP2_PREFACE "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
-static mk_ptr_t http2_preface = {
-    .data = MK_HTTP2_PREFACE,
-    .len  = sizeof(MK_HTTP2_PREFACE) - 1
-};
-
-
-int mk_http2_dynamic_table_entry_destroy(struct mk_http2_dynamic_table *ctx, 
-                                         struct mk_http2_dynamic_table_entry *entry)
-{
-    (void) ctx;
-
-    mk_mem_free(entry->name);
-    mk_mem_free(entry->value);
-
-    mk_list_del(&entry->_head);
-    mk_mem_free(entry);
-
-    return 0;
-}
-
-static int mk_http2_dynamic_table_entry_destroy_all(struct mk_http2_dynamic_table *ctx)
-{
-    int c = 0;
-    struct mk_list *tmp;
-    struct mk_list *head;
-    struct mk_http2_dynamic_table_entry *entry;
-
-    mk_list_foreach_safe(head, tmp, &ctx->entries) {
-        entry = mk_list_entry(head, struct mk_http2_dynamic_table_entry, _head);
-        mk_http2_dynamic_table_entry_destroy(ctx, entry);
-        c++;
-    }
-
-    return c;
-}
-
-/* NOTE: This list is a fifo, older entries will be evicted as needed */
-int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx, 
-                                        char *name,
-                                        char *value)
-{
-    struct mk_http2_dynamic_table_entry *new_entry;
-    struct mk_http2_dynamic_table_entry *first_entry;
-    struct mk_list                      *insertion_point;
-    int id;
-
-    id = -1;
-
-    /* Get ID for the new entry */
-    if (mk_list_is_empty(&ctx->entries) == 0) {
-        id = 0;
-        insertion_point = &ctx->entries;
-    }
-    else {
-        first_entry = mk_list_entry_first(&ctx->entries, 
-                                          struct mk_http2_dynamic_table_entry, _head);
-
-        insertion_point = &first_entry->_head;
-
-        id = first_entry->id + 1;
-    }
-
-
-    /* Allocate and register queue */
-    new_entry = mk_mem_alloc(sizeof(struct mk_http2_dynamic_table_entry));
-    if (NULL == new_entry) {
-        perror("malloc");
-        return -1;
-    }
-
-    new_entry->id = id;
-
-    new_entry->name = mk_mem_alloc(strlen(name) + 1);
-    if (NULL == new_entry->name) {
-        perror("malloc");
-        return -2;
-    }
-
-    new_entry->value = mk_mem_alloc(strlen(value) + 1);
-    if (NULL == new_entry->value) {
-        perror("malloc");
-        return -2;
-    }
-
-    /* We are using strlen to measure it previously, there is no reason to explicitly
-     * use it here
-    */
-    strcpy(new_entry->name,  name);
-    strcpy(new_entry->value, value);
-
-    new_entry->size = strlen(name) + strlen(value) + 2;
-
-    ctx->size += new_entry->size;
-
-    /* TODO : verify that this is the correct way to prepend to a list (even though
-     *        it works)
-     */
-    mk_list_add(&new_entry->_head, insertion_point);
-
-    return id;
-}
-
-struct mk_http2_dynamic_table *mk_http2_dynamic_table_create()
-{
-    struct mk_http2_dynamic_table *ctx;
-
-    ctx = mk_mem_alloc(sizeof(struct mk_http2_dynamic_table));
-    if (!ctx) {
-        perror("malloc");
-        return NULL;
-    }
-
-    /* Metadata */
-    ctx->size = 0;
-
-    /* Lists */
-    mk_list_init(&ctx->entries);
-
-    return ctx;
-}
-
-int mk_http2_dynamic_table_destroy(struct mk_http2_dynamic_table *ctx)
-{
-    mk_http2_dynamic_table_entry_destroy_all(ctx);
-    mk_mem_free(ctx);
-    return 0;
-}
-
-int mk_http2_stream_create(struct mk_http2_session *ctx, 
-                           uint32_t id)
-{
-    struct mk_http2_stream *new_entry;
-
-    /* Allocate and register queue */
-    new_entry = mk_mem_alloc(sizeof(struct mk_http2_stream));
-    if (NULL == new_entry) {
-        perror("malloc");
-        return -1;
-    }
-
-    /* Metadata */
-    new_entry->id = id;
-    new_entry->status = MK_HTTP2_STREAM_STATUS_IDLE;
-
-    /* Lists */
-    new_entry->dynamic_table = mk_http2_dynamic_table_create();
-    if (NULL == new_entry->dynamic_table) {
-        mk_mem_free(new_entry);
-        perror("malloc");
-        return -1;
-    }
-
-    mk_list_add(&new_entry->_head, &ctx->http2_streams);
-
-    return id;
-}
-
-int mk_http2_stream_destroy(struct mk_http2_session *ctx,
-                            struct mk_http2_stream *entry)
-{
-    (void) ctx;
-
-    mk_http2_dynamic_table_destroy(entry->dynamic_table);
-    mk_list_del(&entry->_head);
-    mk_mem_free(entry);
-
-    return 0;
-}
-
-static int mk_http2_stream_destroy_all(struct mk_http2_session *ctx)
-{
-    int c = 0;
-    struct mk_list *tmp;
-    struct mk_list *head;
-    struct mk_http2_stream *entry;
-
-    mk_list_foreach_safe(head, tmp, &ctx->http2_streams) {
-        entry = mk_list_entry(head, struct mk_http2_stream, _head);
-        mk_http2_stream_destroy(ctx, entry);
-        c++;
-    }
-
-    return c;
-}
-
-struct mk_http2_stream *mk_http2_stream_get(struct mk_http2_session *ctx, int id)
-{
-    struct mk_list *head;
-    struct mk_http2_stream *q = NULL;
-
-    mk_list_foreach(head, &ctx->http2_streams) {
-        q = mk_list_entry(head, struct mk_http2_stream, _head);
-        if (q->id == id) {
-            return q;
-        }
-    }
-
-    return NULL;
-}
-
-
 
 
 static inline void buffer_consume(struct mk_http2_session *h2s, int bytes) {
@@ -245,41 +42,20 @@ static inline void buffer_consume(struct mk_http2_session *h2s, int bytes) {
 
 /* Enqueue an error response. This function always returns MK_EXIT_OK */
 /* TODO : Define and implement this function properly */
-int mk_http2_error(int error_code, 
-                   struct mk_server *server) {
+static inline int mk_http2_error(int error_code, struct mk_server *server) {
     (void) error_code;
     (void) server;
 
     return 0;
 }
 
-/* Handle an upgraded session */
-static int mk_http2_upgrade(void *cs, void *sr, struct mk_server *server) {
-    struct mk_http_session *s = cs;
-    struct mk_http_request *r = sr;
-    struct mk_http2_session *h2s;
-
-    mk_header_set_http_status(r, MK_INFO_SWITCH_PROTOCOL);
-    r->headers.connection = MK_HEADER_CONN_UPGRADED;
-    r->headers.upgrade = MK_HEADER_UPGRADED_H2C;
-    mk_header_prepare(s, r, server);
-
-    h2s = mk_http2_session_get(s->conn);
-
-    h2s->status = MK_HTTP2_UPGRADED;
-
-    s->conn->data = h2s;
-
-    return MK_HTTP_OK;
-}
-
-static inline void mk_http2_frame_decode_header(uint8_t *buf,
+static inline void mk_http2_decode_frame_header(uint8_t *buf,
                                                 struct mk_http2_frame *frame) {
-    frame->length    = mk_http2_bitdec_32u(buf) >> 8;
-    frame->type      = mk_http2_bitdec_32u(buf) &  0xFF;
-    frame->flags     = buf[4];
-    frame->stream_id = mk_http2_bitdec_stream_id(&buf[5]);
-    frame->payload   = &buf[MK_HTTP2_MINIMUM_FRAME_SIZE];
+    frame->length      = mk_http2_bitdec_32u(buf) >> 8;
+    frame->type        = mk_http2_bitdec_32u(buf) &  0xFF;
+    frame->flags       = buf[4];
+    frame->stream_id   = mk_http2_bitdec_stream_id(&buf[5]);
+    frame->raw_payload = &buf[MK_HTTP2_MINIMUM_FRAME_SIZE];
 
 #ifdef MK_HAVE_TRACE
     MK_TRACE("Frame Header");
@@ -289,6 +65,194 @@ static inline void mk_http2_frame_decode_header(uint8_t *buf,
            frame->type,
            frame->stream_id);
 #endif
+}
+
+static inline void mk_http2_decode_data_frame_payload(struct mk_http2_frame *frame) {
+    size_t   optional_fields_size;
+    uint8_t *payload_buffer;
+
+    optional_fields_size = 0;
+    payload_buffer = frame->raw_payload;
+
+    if (0 != (MK_HTTP2_HEADERS_PADDED & frame->flags)) {
+        frame->payload.data.pad_length = payload_buffer[0];
+
+        payload_buffer += 1;
+        optional_fields_size += 1;
+    }
+    else {
+        frame->payload.data.pad_length = 0;
+    }
+
+    frame->payload.data.data_length = frame->length - 
+                                      optional_fields_size - 
+                                      frame->payload.data.pad_length;
+
+    frame->payload.data.data_block = payload_buffer;
+
+    frame->payload.data.padding_block = \
+        &payload_buffer[frame->payload.data.data_length];
+}
+
+static inline void mk_http2_decode_headers_frame_payload(struct mk_http2_frame *frame) {
+    size_t   optional_fields_size;
+    uint8_t *payload_buffer;
+
+    optional_fields_size = 0;
+    payload_buffer = frame->raw_payload;
+
+    if (0 != (MK_HTTP2_HEADERS_PADDED & frame->flags)) {
+        frame->payload.headers.pad_length = payload_buffer[0];
+
+        payload_buffer += 1;
+        optional_fields_size += 1;
+    }
+    else {
+        frame->payload.headers.pad_length = 0;
+    }
+
+    if (0 != (MK_HTTP2_HEADERS_PRIORITY & frame->flags)) {
+        frame->payload.headers.stream_dependency = ((uint32_t *)payload_buffer)[0];
+        frame->payload.headers.weight = payload_buffer[4];
+
+        payload_buffer += 5;
+        optional_fields_size += 5;
+    }
+    else {
+        frame->payload.headers.stream_dependency = 0;
+        frame->payload.headers.weight = 0;
+    }
+
+    frame->payload.headers.data_length = frame->length - 
+                                         optional_fields_size - 
+                                         frame->payload.headers.pad_length;
+
+    frame->payload.headers.data_block = payload_buffer;
+
+    frame->payload.headers.padding_block = \
+        &payload_buffer[frame->payload.headers.data_length];
+}
+
+static inline void mk_http2_decode_priority_frame_payload(struct mk_http2_frame *frame) {
+    frame->payload.priority.stream_dependency = \
+    mk_http2_bitdec_stream_id(frame->raw_payload);
+    
+    frame->payload.priority.exclusive_dependency_flag = \
+        BIT_CHECK(frame->payload.priority.stream_dependency, 31);
+
+    BIT_CLEAR(frame->payload.priority.stream_dependency, 31);
+
+    frame->payload.priority.weight = frame->raw_payload[4];
+}
+
+static inline void mk_http2_decode_rst_stream_frame_payload(struct mk_http2_frame *
+                                                            frame) {
+
+    frame->payload.rst_stream.error_code = ((uint32_t *)frame->raw_payload)[0];
+}
+
+static inline void mk_http2_decode_settings_frame_payload(struct mk_http2_frame *frame) {
+    frame->payload.settings.entries = (struct mk_http2_setting *) frame->raw_payload;
+}
+
+static inline void mk_http2_decode_push_promise_frame_payload(struct mk_http2_frame *
+                                                              frame) {
+    size_t   mandatory_fields_size;
+    size_t   optional_fields_size;
+    uint8_t *payload_buffer;
+
+    mandatory_fields_size = 4; /* Promised Stream ID */
+    optional_fields_size = 0;
+    payload_buffer = frame->raw_payload;
+
+    if (0 != (MK_HTTP2_HEADERS_PADDED & frame->flags)) {
+        frame->payload.push_promise.pad_length = payload_buffer[0];
+
+        payload_buffer += 1;
+        optional_fields_size += 1;
+    }
+    else {
+        frame->payload.push_promise.pad_length = 0;
+    }
+
+    frame->payload.push_promise.promised_stream_id = \
+        mk_http2_bitdec_stream_id(frame->raw_payload);
+    
+    BIT_CLEAR(frame->payload.push_promise.promised_stream_id, 31);
+
+    frame->payload.push_promise.data_length = frame->length - 
+                                              optional_fields_size - 
+                                              mandatory_fields_size - 
+                                              frame->payload.push_promise.pad_length;
+
+    frame->payload.push_promise.data_block = payload_buffer;
+
+    frame->payload.push_promise.padding_block = \
+        &payload_buffer[frame->payload.push_promise.data_length];
+}
+
+static inline void mk_http2_decode_ping_frame_payload(struct mk_http2_frame *frame) {
+    frame->payload.ping.data = ((uint64_t *)frame->raw_payload)[0];
+}
+
+static inline void mk_http2_decode_goaway_frame_payload(struct mk_http2_frame *frame) {
+    frame->payload.goaway.last_stream_id = \
+    mk_http2_bitdec_stream_id(frame->raw_payload);
+
+    BIT_CLEAR(frame->payload.goaway.last_stream_id, 31);
+
+    frame->payload.goaway.error_code = *((uint32_t *)&frame->raw_payload[4]);
+    frame->payload.goaway.additional_debug_data = &frame->raw_payload[8];
+}
+
+static inline void mk_http2_decode_window_update_frame_payload(struct mk_http2_frame *
+                                                               frame) {
+    frame->payload.window_update.window_size_increment = \
+        ((uint32_t *)frame->raw_payload)[0];
+
+    BIT_CLEAR(frame->payload.window_update.window_size_increment, 31);
+}
+
+static inline void mk_http2_decode_continuation_frame_payload(struct mk_http2_frame *
+                                                              frame) {
+
+    frame->payload.continuation.data_length = frame->length;
+    frame->payload.continuation.data_block = frame->raw_payload;
+}
+
+static inline void mk_http2_decode_frame_payload(struct mk_http2_frame *frame) {
+    switch(frame->type) {
+    case MK_HTTP2_DATA_FRAME:
+        mk_http2_decode_data_frame_payload(frame);
+        break;
+    case MK_HTTP2_HEADERS_FRAME:
+        mk_http2_decode_headers_frame_payload(frame);
+        break;
+    case MK_HTTP2_PRIORITY_FRAME:
+        mk_http2_decode_priority_frame_payload(frame);
+        break;
+    case MK_HTTP2_RST_STREAM_FRAME:
+        mk_http2_decode_rst_stream_frame_payload(frame);
+        break;
+    case MK_HTTP2_SETTINGS_FRAME:
+        mk_http2_decode_settings_frame_payload(frame);
+        break;
+    case MK_HTTP2_PUSH_PROMISE_FRAME:
+        mk_http2_decode_push_promise_frame_payload(frame);
+        break;
+    case MK_HTTP2_PING_FRAME:
+        mk_http2_decode_ping_frame_payload(frame);
+        break;
+    case MK_HTTP2_GOAWAY_FRAME:
+        mk_http2_decode_goaway_frame_payload(frame);
+        break;
+    case MK_HTTP2_WINDOW_UPDATE_FRAME:
+        mk_http2_decode_window_update_frame_payload(frame);
+        break;
+    case MK_HTTP2_CONTINUATION_FRAME:
+        mk_http2_decode_continuation_frame_payload(frame);
+        break;
+    }
 }
 
 static inline int mk_http2_handle_continuation_frame(struct mk_sched_conn *conn,
@@ -302,13 +266,12 @@ static inline int mk_http2_handle_continuation_frame(struct mk_sched_conn *conn,
     return 0;
 }
 
+
 static inline int mk_http2_handle_headers_frame(struct mk_sched_conn *conn,
                                                 struct mk_http2_frame *frame,
                                                 struct mk_http2_stream *stream
                                                 ) {
-    struct mk_http2_session               *h2s;
-    struct mk_http2_headers_frame_payload *headers;
-    int                                    result;
+    struct mk_http2_session *h2s;
 
     (void) conn;
     (void) frame;
@@ -322,6 +285,15 @@ static inline int mk_http2_handle_headers_frame(struct mk_sched_conn *conn,
 
     h2s = mk_http2_session_get(conn);
 
+    if(h2s->remotely_initiated_open_stream_count == 
+       h2s->local_settings.max_concurrent_streams) {
+        /* The error code for this situation is based on the intention of the server,
+         * in our case we do want the client to automatically retry thus we return
+         * the most benevolent code.
+         */
+        return MK_HTTP2_REFUSED_STREAM;
+    }
+
     stream->status = MK_HTTP2_STREAM_STATUS_OPEN;
 
     if (0 == (MK_HTTP2_HEADERS_END_HEADERS & frame->flags)) {
@@ -332,21 +304,38 @@ static inline int mk_http2_handle_headers_frame(struct mk_sched_conn *conn,
          * 
          */
 
+        if(NULL != stream->header_buffer) {
+            return MK_HTTP2_INTERNAL_ERROR;            
+        }
+
+        stream->header_buffer_size = frame->payload.headers.data_length;
+
+        stream->header_buffer = mk_mem_alloc(stream->header_buffer_size);
+
+        /* FIXME: send internal server error ? */
+        if (NULL == stream->header_buffer) {
+            return MK_HTTP2_INTERNAL_ERROR;
+        }
+
+        memcpy(stream->header_buffer, frame->payload.headers.data_block, 
+               stream->header_buffer_size);
+
+        stream->header_buffer_length = stream->header_buffer_size;
+
         h2s->status = MK_HTTP2_AWAITING_CONTINUATION_FRAME;
 
         h2s->expected_continuation_stream = frame->stream_id;
     }
-
-    if (0 != (MK_HTTP2_HEADERS_END_STREAM & frame->flags)) {
-        stream->status = MK_HTTP2_STREAM_STATUS_HALF_CLOSED;
+    else {
+        /* Process the headers! */
+        printf("I SHOULD PROCESS THE HEADERS NOW!\n");
     }
 
-    headers = (struct mk_http2_headers_frame_payload *) frame->payload;
+    if (0 != (MK_HTTP2_HEADERS_END_STREAM & frame->flags)) {
+        stream->status = MK_HTTP2_STREAM_STATUS_HALF_CLOSED_REMOTE;
+    }
 
-    printf("HEADERS FOR STREAM : %i\n", frame->stream_id);
-    printf("FLAGS : %i\n", frame->flags);
-    printf("END_HEADERS PRESENT? : %i\n", frame->flags & MK_HTTP2_HEADERS_END_HEADERS);
-    printf("\n\n");
+    h2s->remotely_initiated_open_stream_count++;
 
     return MK_HTTP2_NO_ERROR;
 }
@@ -369,7 +358,7 @@ static inline int mk_http2_handle_window_update_frame(struct mk_sched_conn *conn
         return MK_HTTP2_FRAME_SIZE_ERROR;
     }
 
-    window_size_increment = mk_http2_bitdec_32u((uint8_t *)frame->payload);
+    window_size_increment = mk_http2_bitdec_32u((uint8_t *)frame->raw_payload);
     BIT_CLEAR(window_size_increment, 31);
 
     if (0 == window_size_increment ||
@@ -390,8 +379,8 @@ static inline int mk_http2_handle_window_update_frame(struct mk_sched_conn *conn
     return MK_HTTP2_NO_ERROR;
 }
 
-static inline int mk_http2_handle_settings(struct mk_sched_conn *conn,
-                                           struct mk_http2_frame *frame) {
+static inline int mk_http2_handle_settings_frame(struct mk_sched_conn *conn,
+                                                 struct mk_http2_frame *frame) {
     size_t                   setting_entry_list_length;
     size_t                   setting_entry_list_index;
     struct mk_http2_setting *setting_entry_list;
@@ -433,7 +422,7 @@ static inline int mk_http2_handle_settings(struct mk_sched_conn *conn,
         return MK_HTTP2_NO_ERROR;
     }
 
-    setting_entry_list = (struct mk_http2_setting *) frame->payload;
+    setting_entry_list = (struct mk_http2_setting *) frame->raw_payload;
 
     setting_entry_list_length = \
         mk_http2_frame_size_to_setting_entry_count(frame->length);
@@ -528,10 +517,10 @@ static inline int mk_http2_handle_settings(struct mk_sched_conn *conn,
 static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
                                      struct mk_sched_worker *worker,
                                      struct mk_server *server) {
+    int                      result;
     struct mk_http2_stream  *stream;
     struct mk_http2_frame    frame;
     struct mk_http2_session *h2s;
-    int    result;
 
     (void) worker;
 
@@ -542,7 +531,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
         MK_H2_TRACE(conn, "HTTP/2 SESSION SETTINGS RECEIVED");
 
         /* Decode the frame header */
-        mk_http2_frame_decode_header(h2s->buffer, &frame);
+        mk_http2_decode_frame_header(h2s->buffer, &frame);
 
         if (frame.length > h2s->local_settings.max_frame_size) {
             MK_TRACE("[FD %i] Frame size exceeds the one agreed upon", 
@@ -563,7 +552,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
 
     printf("FRAME TYPE = %d\n", frame.type);
     printf("FRAME DATA\n\n");
-    mk_utils_hexdump(frame.payload, frame.length, 16);
+    mk_utils_hexdump(frame.raw_payload, frame.length, 16);
     printf("\n\n");
 
     if (MK_HTTP2_AWAITING_CLIENT_SETTINGS == h2s->status) {
@@ -602,22 +591,37 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
     }
 
     if(0 != frame.stream_id) {
-        stream = mk_http2_stream_get(h2s, frame.stream_id);
+        stream = mk_http2_stream_get(h2s, MK_HTTP2_REMOTELY_INITIATED_STREAM, frame.stream_id);
 
         if(NULL == stream) {
-            result = mk_http2_stream_create(h2s, frame.stream_id);
+            /* Trying to initiate a stream with an ID that's not higher than the last
+             * one should return a protocol error according to 5.1.1
+             */
+            if(h2s->maximum_remotely_initiated_stream_id >= frame.stream_id)
+            {
+                return MK_HTTP2_PROTOCOL_ERROR;
+            }
+
+            result = mk_http2_stream_create(h2s, MK_HTTP2_REMOTELY_INITIATED_STREAM, frame.stream_id);
 
             if(0 > result) {
                 /* TRACE ERROR */
                 return MK_HTTP2_INTERNAL_ERROR;
             }
 
-            stream = mk_http2_stream_get(h2s, frame.stream_id);
+            stream = mk_http2_stream_get(h2s, MK_HTTP2_REMOTELY_INITIATED_STREAM, frame.stream_id);
 
             if(NULL == stream) {
                 /* TRACE ERROR */
                 return MK_HTTP2_INTERNAL_ERROR;
             }
+
+            h2s->maximum_remotely_initiated_stream_id = frame.stream_id;
+
+            /* According to 5.1.1 when a stream id enters the OPEN statue we need to 
+             * transition any lower id streams that are still in the IDLE state to
+             * the closed state, this will be implemented later on. 
+            */
         }
     }
 
@@ -625,7 +629,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
         if (MK_HTTP2_STREAM_STATUS_IDLE == stream->status) {
             if (MK_HTTP2_RST_STREAM_FRAME   != frame.type &&
                 MK_HTTP2_PRIORITY_FRAME     != frame.type &&
-                MK_HTTP2_CONTINUATION_FRAME != frame.type) {
+                MK_HTTP2_HEADERS_FRAME      != frame.type) {
                 return MK_HTTP2_PROTOCOL_ERROR;
             }
         }
@@ -672,7 +676,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
     }
     
     if (MK_HTTP2_SETTINGS_FRAME == frame.type) {
-        result = mk_http2_handle_settings(conn, &frame);
+        result = mk_http2_handle_settings_frame(conn, &frame);
 
         if (MK_HTTP2_FRAME_PROCESSED == result) {
             if (MK_HTTP2_AWAITING_CLIENT_SETTINGS == h2s->status) {
@@ -702,6 +706,32 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
     return MK_HTTP2_FRAME_PROCESSED;
 }
 
+
+
+/* Handle an upgraded session 
+ *
+ * TODO : Verify this function as many things changed since it was checked and 
+ *        it's probably outdated and broken.
+ */
+static int mk_http2_upgrade(void *cs, void *sr, struct mk_server *server) {
+    struct mk_http_session *s = cs;
+    struct mk_http_request *r = sr;
+    struct mk_http2_session *h2s;
+
+    mk_header_set_http_status(r, MK_INFO_SWITCH_PROTOCOL);
+    r->headers.connection = MK_HEADER_CONN_UPGRADED;
+    r->headers.upgrade = MK_HEADER_UPGRADED_H2C;
+    mk_header_prepare(s, r, server);
+
+    h2s = mk_http2_session_get(s->conn);
+
+    h2s->status = MK_HTTP2_UPGRADED;
+
+    s->conn->data = h2s;
+
+    return MK_HTTP_OK;
+}
+
 static int mk_http2_sched_read(struct mk_sched_conn *conn,
                                struct mk_sched_worker *worker,
                                struct mk_server *server) {
@@ -714,48 +744,6 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
     (void) worker;
     (void) server;
 
-// {
-//     static int test_flag = 0;
-
-//     if(0 == test_flag)
-//     {
-//         struct mk_http2_dynamic_table *dt;
-
-//         test_flag = 1;
-
-//         dt = mk_http2_dynamic_table_create();
-
-//         printf("DT = %p\n", dt);
-
-
-//         if(NULL != dt)
-//         {
-//             int c;
-//             struct mk_list *head;
-//             struct mk_http2_dynamic_table_entry *q;
-
-//             mk_http2_dynamic_table_entry_create(dt, "entry 1", "value 1");
-//             mk_http2_dynamic_table_entry_create(dt, "entry 2", "value 2");
-//             mk_http2_dynamic_table_entry_create(dt, "entry 3", "value 3");
-//             mk_http2_dynamic_table_entry_create(dt, "entry 4", "value 4");
-
-//             c = 0;
-//             mk_list_foreach(head, &dt->entries) {
-//                 q = mk_list_entry(head, struct mk_http2_dynamic_table_entry, _head);
-
-//                 printf("ENTRY %02d : [%d] [%s] - [%s]\n", c, q->id, q->name, q->value);
-
-//                 c++;
-//             }
-
-
-//         }
-
-//         printf("\n\n");
-//     }
-
-// }
-
     h2s = mk_http2_session_get(conn);
 
     if (MK_HTTP2_UNINITIALIZED == h2s->status ||
@@ -764,7 +752,13 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
         h2s->buffer_size = MK_HTTP2_CHUNK;
         h2s->buffer_length = 0;
 
-        h2s->response_stream_sequence = 2;
+        h2s->response_stream_id_sequence = 0;
+
+        h2s->locally_initiated_open_stream_count = 0;
+        h2s->remotely_initiated_open_stream_count = 0;
+
+        h2s->maximum_locally_initiated_stream_id = 0;
+        h2s->maximum_remotely_initiated_stream_id = 0;
 
         mk_list_init(&h2s->http2_streams);
 
@@ -837,9 +831,9 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
                                                        request */
         MK_HTTP2_UPGRADED == h2s->status) { /* Upgraded connections from HTTP/1.x
                                                requires the preface */
-        if (h2s->buffer_length >= http2_preface.len) {
+        if (h2s->buffer_length >= sizeof(MK_HTTP2_PREFACE) - 1) {
             if (0 != memcmp(h2s->buffer,
-                            http2_preface.data, http2_preface.len)) {
+                            MK_HTTP2_PREFACE, sizeof(MK_HTTP2_PREFACE) - 1)) {
                 MK_H2_TRACE(conn, "Invalid HTTP/2 preface");
 
                 return 0;
@@ -847,7 +841,7 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
 
             MK_H2_TRACE(conn, "HTTP/2 preface OK");
 
-            buffer_consume(h2s, http2_preface.len);
+            buffer_consume(h2s, sizeof(MK_HTTP2_PREFACE) - 1);
 
             h2s->local_settings = MK_HTTP2_SETTINGS_DEFAULT;
 
@@ -880,6 +874,7 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
 
     do {
         frame_result = mk_http2_frame_run(conn, worker, server);
+        // frame_result = MK_HTTP2_FRAME_PROCESSED;
     }
     while (MK_HTTP2_FRAME_PROCESSED == frame_result);
 
