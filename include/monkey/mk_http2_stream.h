@@ -48,6 +48,8 @@ struct mk_http2_stream {
     size_t                         header_buffer_size;
     size_t                         header_buffer_length;
 
+    uint32_t                       dynamic_table_size_limit;
+
     uint8_t                        rst_stream_received;
     uint8_t                        end_stream_received;
 

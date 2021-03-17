@@ -22,6 +22,7 @@
 
 #include <monkey/mk_http2_dynamic_table.h>
 
+
 /* NOTE: This list is a fifo, older entries will be evicted as needed */
 int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx, 
                                         char *name,
@@ -118,6 +119,25 @@ int mk_http2_dynamic_table_entry_destroy_all(struct mk_http2_dynamic_table *ctx)
     return c;
 }
 
+struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_id(
+                                        struct mk_http2_dynamic_table *ctx, 
+                                        uint32_t id)
+{
+    struct mk_list *head;
+    struct mk_http2_dynamic_table_entry *entry;
+
+    mk_list_foreach(head, &ctx->entries) {
+        entry = mk_list_entry(head, struct mk_http2_dynamic_table_entry, _head);
+
+        if(id == entry->id)
+        {
+            return entry;
+        }
+    }
+
+    return NULL;
+}
+
 struct mk_http2_dynamic_table *mk_http2_dynamic_table_create()
 {
     struct mk_http2_dynamic_table *ctx;
@@ -137,8 +157,7 @@ struct mk_http2_dynamic_table *mk_http2_dynamic_table_create()
     return ctx;
 }
 
-int mk_http2_dynamic_table_destroy(struct mk_http2_dynamic_table *ctx)
-{
+int mk_http2_dynamic_table_destroy(struct mk_http2_dynamic_table *ctx) {
     mk_http2_dynamic_table_entry_destroy_all(ctx);
     mk_mem_free(ctx);
     return 0;

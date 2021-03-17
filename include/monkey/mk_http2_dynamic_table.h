@@ -44,6 +44,10 @@ int mk_http2_dynamic_table_entry_destroy(struct mk_http2_dynamic_table *ctx,
 
 int mk_http2_dynamic_table_entry_destroy_all(struct mk_http2_dynamic_table *ctx);
 
+struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_id(
+                                        struct mk_http2_dynamic_table *ctx, 
+                                        uint32_t id);
+
 struct mk_http2_dynamic_table *mk_http2_dynamic_table_create();
 
 int mk_http2_dynamic_table_destroy(struct mk_http2_dynamic_table *ctx);

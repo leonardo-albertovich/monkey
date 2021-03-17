@@ -156,17 +156,22 @@ struct mk_http2_frame {
     uint8_t  *raw_payload;
     union
     {
-      struct mk_http2_data_frame_payload          data;
-      struct mk_http2_headers_frame_payload       headers;
-      struct mk_http2_priority_frame_payload      priority;
-      struct mk_http2_rst_stream_frame_payload    rst_stream;
-      struct mk_http2_settings_frame_payload      settings;
-      struct mk_http2_push_promise_frame_payload  push_promise;
-      struct mk_http2_ping_frame_payload          ping;
-      struct mk_http2_goaway_frame_payload        goaway;
-      struct mk_http2_window_update_frame_payload window_update;
-      struct mk_http2_continuation_frame_payload  continuation;
+        struct mk_http2_data_frame_payload          data;
+        struct mk_http2_headers_frame_payload       headers;
+        struct mk_http2_priority_frame_payload      priority;
+        struct mk_http2_rst_stream_frame_payload    rst_stream;
+        struct mk_http2_settings_frame_payload      settings;
+        struct mk_http2_push_promise_frame_payload  push_promise;
+        struct mk_http2_ping_frame_payload          ping;
+        struct mk_http2_goaway_frame_payload        goaway;
+        struct mk_http2_window_update_frame_payload window_update;
+        struct mk_http2_continuation_frame_payload  continuation;
     } payload;
+};
+
+struct mk_http2_header_pair {
+    char *name;
+    char *value;
 };
 
 struct mk_http2_session {
