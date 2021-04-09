@@ -42,12 +42,15 @@ int mk_http2_stream_create(struct mk_http2_session *ctx,
     new_entry->status = MK_HTTP2_STREAM_STATUS_IDLE;
     new_entry->initiator = initiator;
 
+    new_entry->flow_control_window_size = ctx->remote_settings.initial_window_size;
+
     new_entry->header_buffer = NULL;
     new_entry->header_buffer_size = 0;
     new_entry->header_buffer_length = 0;
 
     /* Lists */
-    new_entry->dynamic_table = mk_http2_dynamic_table_create();
+    new_entry->dynamic_table = mk_http2_dynamic_table_create(
+                                ctx->local_settings.max_header_list_size);
     if (NULL == new_entry->dynamic_table) {
         mk_mem_free(new_entry);
         perror("malloc");
@@ -102,4 +105,23 @@ struct mk_http2_stream *mk_http2_stream_get(struct mk_http2_session *ctx,
     }
 
     return NULL;
+}
+
+int mk_http2_stream_apply_initial_window_size_delta(struct mk_http2_session *ctx, 
+                                                    int32_t window_size_delta)
+{
+    struct mk_list *head;
+    struct mk_http2_stream *q = NULL;
+
+    if (0 == mk_list_is_empty(&ctx->http2_streams)) {
+        return -1;
+    }
+
+    mk_list_foreach(head, &ctx->http2_streams) {
+        q = mk_list_entry(head, struct mk_http2_stream, _head);
+
+        q->flow_control_window_size += window_size_delta;
+    }
+
+    return 0;
 }

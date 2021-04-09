@@ -44,15 +44,17 @@ struct mk_http2_stream {
     uint8_t                        initiator;
     struct mk_http2_dynamic_table *dynamic_table;
 
+    int32_t                        flow_control_window_size;
+
     uint8_t                       *header_buffer;
     size_t                         header_buffer_size;
     size_t                         header_buffer_length;
 
-    uint32_t                       dynamic_table_size_limit;
-
     uint8_t                        rst_stream_received;
     uint8_t                        end_stream_received;
 
+    struct mk_http2_header_table  *incoming_headers;
+    struct mk_http2_header_table  *outgoing_headers;
 };
 
 /* Prototypes */
@@ -68,5 +70,8 @@ int mk_http2_stream_destroy_all(struct mk_http2_session *ctx);
 
 struct mk_http2_stream *mk_http2_stream_get(struct mk_http2_session *ctx, 
                                             uint8_t initiator, int id);
+
+int mk_http2_stream_apply_initial_window_size_delta(struct mk_http2_session *ctx, 
+                                                    int32_t window_size_delta);
 
 #endif

@@ -15,7 +15,8 @@ style and behavior in terms of verification offloading and error reporting
 #include <monkey/mk_http2_huffman_table.h>
 
 
-static uint8_t *huffdecode4(uint8_t *output_buffer, uint8_t input_nibble, 
+static uint8_t *huffdecode4(uint8_t *output_buffer, size_t *output_length, 
+                            uint8_t input_nibble, 
                             uint8_t *state, int *maybe_eos)
 {
     const nghttp2_huff_decode *entry;
@@ -28,6 +29,7 @@ static uint8_t *huffdecode4(uint8_t *output_buffer, uint8_t input_nibble,
 
     if ((entry->flags & NGHTTP2_HUFF_SYM) != 0) {
         *output_buffer++ = entry->sym;
+        *output_length += 1;
     }
 
     *state = entry->state;
@@ -39,28 +41,32 @@ static uint8_t *huffdecode4(uint8_t *output_buffer, uint8_t input_nibble,
 int h2o_hpack_decode_huffman(uint8_t *output_buffer, size_t output_buffer_size, 
                              uint8_t *input_buffer, size_t input_length)
 {
-    int     output_length;
-    int     eos_detected;
-    size_t  input_index;
-    uint8_t state;
+    size_t   output_length;
+    int      eos_detected;
+    size_t   input_index;
+    uint8_t  state;
 
     output_length = 0;
     eos_detected = 1;
     state = 0;
 
-    for (input_index = 0 ; input_index < input_length ; input_index++, output_length++) {
-        if(output_length >= (int) output_buffer_size) {
+    for (input_index = 0 ; input_index < input_length ; input_index++) {
+        if(output_length >= output_buffer_size) {
             return -1;
         }
 
-        output_buffer = huffdecode4(output_buffer, input_buffer[input_index] >> 4, 
+        output_buffer = huffdecode4(output_buffer, &output_length, input_buffer[input_index] >> 4, 
                                     &state, &eos_detected);
 
         if (NULL == output_buffer) {
             return -2;
         }
 
-        output_buffer = huffdecode4(output_buffer, input_buffer[input_index] & 0xf, 
+        if(output_length >= output_buffer_size) {
+            return -1;
+        }
+
+        output_buffer = huffdecode4(output_buffer, &output_length, input_buffer[input_index] & 0xf, 
                                     &state, &eos_detected);
 
         if (NULL == output_buffer) {
@@ -72,7 +78,7 @@ int h2o_hpack_decode_huffman(uint8_t *output_buffer, size_t output_buffer_size,
         return -4;
     }
 
-    return output_length;
+    return (int) output_length;
 }
 
 

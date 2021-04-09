@@ -33,11 +33,15 @@ struct mk_http2_dynamic_table_entry {
 struct mk_http2_dynamic_table {
     struct mk_list entries;      /* list of dynamic table entries */
     size_t         size;         /* pre-computed size of the entire table */
+    size_t         size_limit;   /* maximum size (used for eviction) */
+    uint32_t       next_id;      /* this needs to resist table wipes */
 };
 
 int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx, 
                                         char *name,
-                                        char *value);
+                                        size_t name_length,
+                                        char *value, 
+                                        size_t value_length);
 
 int mk_http2_dynamic_table_entry_destroy(struct mk_http2_dynamic_table *ctx, 
                                          struct mk_http2_dynamic_table_entry *entry);
@@ -48,7 +52,13 @@ struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_id(
                                         struct mk_http2_dynamic_table *ctx, 
                                         uint32_t id);
 
-struct mk_http2_dynamic_table *mk_http2_dynamic_table_create();
+int mk_http2_dynamic_table_enforce_size_limit(struct mk_http2_dynamic_table *ctx,
+                                              size_t size_limit);
+
+void mk_http2_dynamic_table_set_size_limit(struct mk_http2_dynamic_table *ctx, 
+                                          uint32_t size_limit);
+
+struct mk_http2_dynamic_table *mk_http2_dynamic_table_create(uint32_t size_limit);
 
 int mk_http2_dynamic_table_destroy(struct mk_http2_dynamic_table *ctx);
 

@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <monkey/mk_stream.h>
 #include <monkey/mk_http2_settings.h>
+#include <monkey/mk_http2_header_table.h>
 #include <monkey/mk_http2_dynamic_table.h>
 
 /* Constants */ 
@@ -192,6 +193,8 @@ struct mk_http2_session {
     /* Protocol specific metadata */
     uint32_t       expected_continuation_stream;
     uint32_t       response_stream_id_sequence;
+
+    int32_t        flow_control_window_size;
 
     struct mk_list http2_streams;
 

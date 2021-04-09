@@ -29,6 +29,7 @@ if(MK_HTTP2)
     ${src}
     "mk_http2.c"
     "mk_http2_dynamic_table.c"
+    "mk_http2_header_table.c"
     "mk_http2_stream.c"
     "mk_http2_huffman.c"
     )

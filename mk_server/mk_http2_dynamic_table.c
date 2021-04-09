@@ -23,21 +23,71 @@
 #include <monkey/mk_http2_dynamic_table.h>
 
 
-/* NOTE: This list is a fifo, older entries will be evicted as needed */
+/* NOTE 1 : This list is a fifo, older entries will be evicted as needed
+ * NOTE 2 : We need o make both lengths explicit to avoid innecesary allocations that 
+ *          would be needed when any of them are passed as uncompressed string literals 
+ *          in the packet
+ */
 int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx, 
                                         char *name,
-                                        char *value)
+                                        size_t name_length,
+                                        char *value, 
+                                        size_t value_length)
 {
     struct mk_http2_dynamic_table_entry *new_entry;
     struct mk_http2_dynamic_table_entry *first_entry;
+    size_t                               new_entry_size;
     struct mk_list                      *insertion_point;
-    int id;
 
-    id = -1;
+    new_entry_size = (name_length + value_length + 32);
 
-    /* Get ID for the new entry */
-    if (mk_list_is_empty(&ctx->entries) == 0) {
-        id = 0;
+    if (0 != mk_list_is_empty(&ctx->entries)) {
+        if (new_entry_size > ctx->size_limit) {
+            mk_http2_dynamic_table_enforce_size_limit(ctx, 0);
+
+            return -1;
+        }
+
+        mk_http2_dynamic_table_enforce_size_limit(ctx, ctx->size_limit - new_entry_size);
+
+        /* This was moved here because we take this path whenever new_entry_size is
+         * smaller or equal to the dynamic table size limit which could leave us with
+         * an empty table
+         */
+    }
+
+    /* Allocate and register queue */
+    new_entry = mk_mem_alloc(sizeof(struct mk_http2_dynamic_table_entry));
+    if (NULL == new_entry) {
+        perror("malloc");
+        return -2;
+    }
+
+    new_entry->id = ctx->next_id;
+
+    new_entry->name = mk_mem_alloc(name_length + 1);
+    if (NULL == new_entry->name) {
+        perror("malloc");
+        return -3;
+    }
+
+    new_entry->value = mk_mem_alloc(value_length + 1);
+    if (NULL == new_entry->value) {
+        perror("malloc");
+        return -4;
+    }
+
+    strncpy(new_entry->name,  name, name_length);
+    strncpy(new_entry->value, value, value_length);
+
+    new_entry->size = new_entry_size;
+
+    ctx->size += new_entry->size;
+
+    /* TODO : verify that this is the correct way to prepend to a list (even though
+     *        it works)
+     */
+    if (0 == mk_list_is_empty(&ctx->entries)) {
         insertion_point = &ctx->entries;
     }
     else {
@@ -45,54 +95,21 @@ int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx,
                                           struct mk_http2_dynamic_table_entry, _head);
 
         insertion_point = &first_entry->_head;
-
-        id = first_entry->id + 1;
     }
 
-
-    /* Allocate and register queue */
-    new_entry = mk_mem_alloc(sizeof(struct mk_http2_dynamic_table_entry));
-    if (NULL == new_entry) {
-        perror("malloc");
-        return -1;
-    }
-
-    new_entry->id = id;
-
-    new_entry->name = mk_mem_alloc(strlen(name) + 1);
-    if (NULL == new_entry->name) {
-        perror("malloc");
-        return -2;
-    }
-
-    new_entry->value = mk_mem_alloc(strlen(value) + 1);
-    if (NULL == new_entry->value) {
-        perror("malloc");
-        return -2;
-    }
-
-    /* We are using strlen to measure it previously, there is no reason to explicitly
-     * use it here
-    */
-    strcpy(new_entry->name,  name);
-    strcpy(new_entry->value, value);
-
-    new_entry->size = strlen(name) + strlen(value) + 2;
-
-    ctx->size += new_entry->size;
-
-    /* TODO : verify that this is the correct way to prepend to a list (even though
-     *        it works)
-     */
     mk_list_add(&new_entry->_head, insertion_point);
 
-    return id;
+    ctx->next_id++;
+
+    return new_entry->id;
 }
 
 int mk_http2_dynamic_table_entry_destroy(struct mk_http2_dynamic_table *ctx, 
                                          struct mk_http2_dynamic_table_entry *entry)
 {
     (void) ctx;
+
+    ctx->size -= entry->size;
 
     mk_mem_free(entry->name);
     mk_mem_free(entry->value);
@@ -138,7 +155,36 @@ struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_id(
     return NULL;
 }
 
-struct mk_http2_dynamic_table *mk_http2_dynamic_table_create()
+/* Explicitly stating the size_limit here allows us to evict before appending
+ * as specified in https://www.rfc-editor.org/rfc/rfc7541.html#section-4.1
+ */
+int mk_http2_dynamic_table_enforce_size_limit(struct mk_http2_dynamic_table *ctx,
+                                              size_t size_limit)
+{
+    struct mk_http2_dynamic_table_entry *last_entry;
+
+    while (ctx->size > size_limit) {
+        if (0 != mk_list_is_empty(&ctx->entries)) {
+            last_entry = mk_list_entry_last(&ctx->entries, 
+                                              struct mk_http2_dynamic_table_entry, _head);
+
+            mk_http2_dynamic_table_entry_destroy(ctx, 
+                                                 last_entry);
+        }
+    }
+
+    return 0;
+}
+
+void mk_http2_dynamic_table_set_size_limit(struct mk_http2_dynamic_table *ctx, 
+                                          uint32_t size_limit)
+{
+    ctx->size_limit = size_limit;
+
+    mk_http2_dynamic_table_enforce_size_limit(ctx, ctx->size_limit);
+}
+
+struct mk_http2_dynamic_table *mk_http2_dynamic_table_create(uint32_t size_limit)
 {
     struct mk_http2_dynamic_table *ctx;
 
@@ -150,6 +196,8 @@ struct mk_http2_dynamic_table *mk_http2_dynamic_table_create()
 
     /* Metadata */
     ctx->size = 0;
+    ctx->size_limit = size_limit;
+    ctx->next_id = 1;
 
     /* Lists */
     mk_list_init(&ctx->entries);
