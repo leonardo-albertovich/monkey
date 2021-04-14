@@ -48,27 +48,24 @@ int mk_http2_header_table_entry_create(struct mk_http2_header_table *ctx,
     }
 
     /* Allocate and register queue */
-    new_entry = mk_mem_alloc(sizeof(struct mk_http2_header_table_entry));
+    new_entry = mk_mem_alloc_z(sizeof(struct mk_http2_header_table_entry));
     if (NULL == new_entry) {
         perror("malloc");
         return -1;
     }
 
-    new_entry->name = mk_mem_alloc(name_length + 1);
+    new_entry->name = mk_mem_alloc_z(name_length + 1);
     if (NULL == new_entry->name) {
         perror("malloc");
         return -2;
     }
 
-    new_entry->value = mk_mem_alloc(value_length + 1);
+    new_entry->value = mk_mem_alloc_z(value_length + 1);
     if (NULL == new_entry->value) {
         perror("malloc");
         return -3;
     }
 
-    /* We are using strlen to measure it previously, there is no reason to explicitly
-     * use it here
-    */
     strncpy(new_entry->name,  name, name_length);
     strncpy(new_entry->value, value, value_length);
 
@@ -123,12 +120,14 @@ struct mk_http2_header_table_entry *mk_http2_header_table_entry_get_by_name_and_
         /* Do we want to do it caseless? Also, headers could repeat so this might
          * not end up being as useful as planned.
          */
-        if(0 == strcasecmp(entry->name, name) && match_index == index)
+        if(0 == strcasecmp(entry->name, name))
         {
-            return entry;
-        }
+            if (match_index == index) {
+                return entry;
+            }
 
-        match_index++;
+            match_index++;
+        }
     }
 
     return NULL;

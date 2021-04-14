@@ -31,7 +31,13 @@ if(MK_HTTP2)
     "mk_http2_dynamic_table.c"
     "mk_http2_header_table.c"
     "mk_http2_stream.c"
+    "mk_http2_hpack.c"
     "mk_http2_huffman.c"
+    "mk_http2_request.c"
+    "mk_http2_thread.c"
+    "mk_http2_frame_decoders.c"
+    "mk_http2_frame_encoders.c"
+    "mk_http2_frame_handlers.c"
     )
 endif()
 

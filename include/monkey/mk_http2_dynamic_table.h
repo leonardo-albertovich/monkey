@@ -52,6 +52,10 @@ struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_id(
                                         struct mk_http2_dynamic_table *ctx, 
                                         uint32_t id);
 
+struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_name(
+                                        struct mk_http2_dynamic_table *ctx, 
+                                        char *name);
+
 int mk_http2_dynamic_table_enforce_size_limit(struct mk_http2_dynamic_table *ctx,
                                               size_t size_limit);
 

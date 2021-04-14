@@ -360,8 +360,8 @@ void mk_plugin_api_init(struct mk_server *server)
     api->time_human  = mk_plugin_time_now_human;
 
 #ifdef MK_HAVE_TRACE
-    api->trace = mk_utils_trace;
-    api->errno_print = mk_utils_print_errno;
+    // api->trace = mk_utils_trace;
+    // api->errno_print = mk_utils_print_errno;
 #endif
 
     api->stacktrace = (void *) mk_utils_stacktrace;

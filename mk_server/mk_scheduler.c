@@ -610,7 +610,7 @@ static int sched_thread_cleanup(struct mk_sched_worker *sched,
 
     mk_list_foreach_safe(head, tmp, list) {
         mth = mk_list_entry(head, struct mk_http_thread, _head);
-        mk_http_thread_destroy(mth);
+        // mk_http_thread_destroy(mth);
         c++;
     }
 

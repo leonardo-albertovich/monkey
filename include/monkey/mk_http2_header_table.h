@@ -32,6 +32,9 @@ struct mk_http2_header_table {
     struct mk_list entries;      /* list of dynamic table entries */
 };
 
+#define mk_http2_header_table_entry_create_debug(ctx, name, value) \
+    mk_http2_header_table_entry_create(ctx, name, strlen(name), value, strlen(value));
+
 int mk_http2_header_table_entry_create(struct mk_http2_header_table *ctx, 
                                        char *name,
                                        size_t name_length,

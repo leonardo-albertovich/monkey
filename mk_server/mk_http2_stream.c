@@ -22,7 +22,8 @@
 
 #include <monkey/mk_http2.h>
 #include <monkey/mk_http2_stream.h>
-// #include <monkey/mk_http2_dynamic_table.h>
+#include <monkey/mk_http2_request.h>
+#include <monkey/mk_http2_dynamic_table.h>
 
 int mk_http2_stream_create(struct mk_http2_session *ctx, 
                            uint8_t initiator,
@@ -31,7 +32,7 @@ int mk_http2_stream_create(struct mk_http2_session *ctx,
     struct mk_http2_stream *new_entry;
 
     /* Allocate and register queue */
-    new_entry = mk_mem_alloc(sizeof(struct mk_http2_stream));
+    new_entry = mk_mem_alloc_z(sizeof(struct mk_http2_stream));
     if (NULL == new_entry) {
         perror("malloc");
         return -1;
@@ -42,7 +43,15 @@ int mk_http2_stream_create(struct mk_http2_session *ctx,
     new_entry->status = MK_HTTP2_STREAM_STATUS_IDLE;
     new_entry->initiator = initiator;
 
+    new_entry->rst_stream_received = 0;
+    new_entry->end_stream_received = 0;
+    new_entry->end_headers_received = 0;
+
     new_entry->flow_control_window_size = ctx->remote_settings.initial_window_size;
+
+    new_entry->data_buffer = NULL;
+    new_entry->data_buffer_size = 0;
+    new_entry->data_buffer_length = 0;
 
     new_entry->header_buffer = NULL;
     new_entry->header_buffer_size = 0;
@@ -56,6 +65,8 @@ int mk_http2_stream_create(struct mk_http2_session *ctx,
         perror("malloc");
         return -1;
     }
+
+    mk_http2_request_init(&new_entry->request, new_entry, ctx);
 
     mk_list_add(&new_entry->_head, &ctx->http2_streams);
 
@@ -100,6 +111,7 @@ struct mk_http2_stream *mk_http2_stream_get(struct mk_http2_session *ctx,
         q = mk_list_entry(head, struct mk_http2_stream, _head);
         if (q->id == id &&
             q->initiator == initiator) {
+
             return q;
         }
     }

@@ -113,7 +113,7 @@ struct mk_server *mk_server_create()
 
 #ifdef MK_HAVE_TRACE
     MK_TRACE("Monkey TRACE is enabled");
-    pthread_mutex_init(&mutex_trace, (pthread_mutexattr_t *) NULL);
+    // pthread_mutex_init(&mutex_trace, (pthread_mutexattr_t *) NULL);
 #endif
 
 #ifdef LINUX_TRACE

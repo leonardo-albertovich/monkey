@@ -23,6 +23,7 @@
 #include <monkey/mk_core.h>
 #include <monkey/mk_config.h>
 #include <monkey/mk_http.h>
+#include <monkey/mk_http2_request.h>
 
 /* Custom error page */
 struct mk_vhost_error_page {
@@ -111,6 +112,7 @@ void mk_vhost_init(char *path, struct mk_server *server);
 
 int mk_vhost_fdt_worker_init(struct mk_server *server);
 int mk_vhost_fdt_worker_exit(struct mk_server *server);
+int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server);
 int mk_vhost_open(struct mk_http_request *sr, struct mk_server *server);
 int mk_vhost_close(struct mk_http_request *sr, struct mk_server *server);
 void mk_vhost_free_all(struct mk_server *server);

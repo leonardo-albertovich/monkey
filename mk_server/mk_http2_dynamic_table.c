@@ -57,7 +57,7 @@ int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx,
     }
 
     /* Allocate and register queue */
-    new_entry = mk_mem_alloc(sizeof(struct mk_http2_dynamic_table_entry));
+    new_entry = mk_mem_alloc_z(sizeof(struct mk_http2_dynamic_table_entry));
     if (NULL == new_entry) {
         perror("malloc");
         return -2;
@@ -65,13 +65,13 @@ int mk_http2_dynamic_table_entry_create(struct mk_http2_dynamic_table *ctx,
 
     new_entry->id = ctx->next_id;
 
-    new_entry->name = mk_mem_alloc(name_length + 1);
+    new_entry->name = mk_mem_alloc_z(name_length + 1);
     if (NULL == new_entry->name) {
         perror("malloc");
         return -3;
     }
 
-    new_entry->value = mk_mem_alloc(value_length + 1);
+    new_entry->value = mk_mem_alloc_z(value_length + 1);
     if (NULL == new_entry->value) {
         perror("malloc");
         return -4;
@@ -155,6 +155,26 @@ struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_id(
     return NULL;
 }
 
+struct mk_http2_dynamic_table_entry *mk_http2_dynamic_table_entry_get_by_name(
+                                        struct mk_http2_dynamic_table *ctx, 
+                                        char *name)
+{
+    struct mk_list *head;
+    struct mk_http2_dynamic_table_entry *entry;
+
+    mk_list_foreach(head, &ctx->entries) {
+        entry = mk_list_entry(head, struct mk_http2_dynamic_table_entry, _head);
+
+        if(strcasecmp(name, entry->name))
+        {
+            return entry;
+        }
+    }
+
+    return NULL;
+
+}
+
 /* Explicitly stating the size_limit here allows us to evict before appending
  * as specified in https://www.rfc-editor.org/rfc/rfc7541.html#section-4.1
  */
@@ -188,7 +208,7 @@ struct mk_http2_dynamic_table *mk_http2_dynamic_table_create(uint32_t size_limit
 {
     struct mk_http2_dynamic_table *ctx;
 
-    ctx = mk_mem_alloc(sizeof(struct mk_http2_dynamic_table));
+    ctx = mk_mem_alloc_z(sizeof(struct mk_http2_dynamic_table));
     if (!ctx) {
         perror("malloc");
         return NULL;

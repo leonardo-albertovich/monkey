@@ -291,6 +291,19 @@ static inline int mk_vhost_fdt_close(struct mk_http_request *sr,
     return close(sr->in_file.fd);
 }
 
+int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server)
+{
+    int id;
+    int off;
+    unsigned int hash;
+
+    off = sr->host_conf->documentroot.len;
+    hash = mk_utils_gen_hash(sr->real_path.data + off,
+                             sr->real_path.len - off);
+    id   = (hash % VHOST_FDT_HASHTABLE_SIZE);
+
+    return mk_vhost_fdt_open(id, hash, sr, server);
+}
 
 int mk_vhost_open(struct mk_http_request *sr, struct mk_server *server)
 {

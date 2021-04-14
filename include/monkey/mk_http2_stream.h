@@ -21,6 +21,8 @@
 #define MK_HTTP2_STREAM_H
 
 #include <monkey/mk_core.h>
+#include <monkey/mk_stream.h>
+#include <monkey/mk_http2_request.h>
 
 /* Constants */
 /* Stream flags */
@@ -46,15 +48,21 @@ struct mk_http2_stream {
 
     int32_t                        flow_control_window_size;
 
+    uint8_t                       *data_buffer;
+    size_t                         data_buffer_size;
+    size_t                         data_buffer_length;
+
     uint8_t                       *header_buffer;
     size_t                         header_buffer_size;
     size_t                         header_buffer_length;
 
     uint8_t                        rst_stream_received;
     uint8_t                        end_stream_received;
+    uint8_t                        end_headers_received;
 
-    struct mk_http2_header_table  *incoming_headers;
     struct mk_http2_header_table  *outgoing_headers;
+
+    struct mk_http2_request        request;
 };
 
 /* Prototypes */

@@ -39,6 +39,11 @@ struct mk_http2_setting
     uint32_t value;
 } __attribute__((packed));
 
+static inline size_t mk_http2_setting_entry_count_to_frame_size(size_t entry_count)
+{
+    return entry_count * MK_HTTP2_SETTINGS_ENTRY_SIZE;
+}
+
 static inline size_t mk_http2_frame_size_to_setting_entry_count(size_t frame_size)
 {
     return frame_size / MK_HTTP2_SETTINGS_ENTRY_SIZE;
@@ -78,7 +83,7 @@ static const struct mk_http2_settings MK_HTTP2_SETTINGS_DEFAULT =
                                                         \
     /* SETTINGS_MAX_CONCURRENT_STREAMS  */              \
     "\x00\x03"                                          \
-    "\x00\x00\x00\x01"   /* value=1    */               \
+    "\x00\x00\x00\x80"   /* value=1    */               \
     /* By limiting this we force the processing to be
      * serialized losing the benefits of the protocol
      * but we are doing it just to work on one thing 

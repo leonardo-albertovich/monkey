@@ -23,6 +23,11 @@ void cb_main(mk_request_t *request, void *data)
     int i;
     (void) data;
 
+    // for(int q = 0 ; q < 100 ; q++)
+    // {
+    //     printf("I'm in cb_main!!\n");
+    // }
+
     mk_http_status(request, 200);
 
     for (i = 0; i < 20; i++) {
