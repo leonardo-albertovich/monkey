@@ -24,8 +24,8 @@
 #include <ctype.h>
 
 #include <monkey/mk_core.h>
-#include <monkey/mk_http.h>
-#include <monkey/mk_http_internal.h>
+#include <monkey/mk_http1.h>
+#include <monkey/mk_http1_internal.h>
 
 /* General status */
 #define MK_HTTP_PARSER_PENDING -10  /* cannot complete until more data arrives */
@@ -301,13 +301,13 @@ static inline int eval_field(struct mk_http_parser *req, char *buffer)
 
 #define mk_http_set_minor_version(c)                \
     if (c == '1') {                                 \
-        req->protocol = MK_HTTP_PROTOCOL_11;        \
+        req->base.protocol = MK_HTTP_PROTOCOL_11;        \
     }                                               \
     else if (c == '0') {                            \
-        req->protocol = MK_HTTP_PROTOCOL_10;        \
+        req->base.protocol = MK_HTTP_PROTOCOL_10;        \
     }                                               \
     else {                                          \
-        req->protocol = MK_HTTP_PROTOCOL_UNKNOWN;   \
+        req->base.protocol = MK_HTTP_PROTOCOL_UNKNOWN;   \
     }
 
 
@@ -342,7 +342,7 @@ static inline int mk_http_parser_more(struct mk_http_parser *p, int len)
     return MK_FALSE;
 }
 
-int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
+int mk_http_parser(struct mk_http1_request *req, struct mk_http_parser *p,
                    char *buffer, int buf_len, struct mk_server *server);
 
 #endif /* MK_HTTP_H */

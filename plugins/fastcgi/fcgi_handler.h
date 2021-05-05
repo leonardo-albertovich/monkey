@@ -90,8 +90,8 @@ struct fcgi_handler {
     uint64_t stdin_offset;
     char *stdin_buffer;
 
-    struct mk_http_session *cs;  /* HTTP session context           */
-    struct mk_http_request *sr;  /* HTTP request context           */
+    struct mk_http1_session *cs;  /* HTTP session context           */
+    struct mk_http1_request *sr;  /* HTTP request context           */
 
     /* FastCGI */
     struct fcgi_begin_request_record header_request;
@@ -120,8 +120,8 @@ static inline void fcgi_encode16(void *a, unsigned b)
 }
 
 struct fcgi_handler *fcgi_handler_new(struct mk_plugin *plugin,
-                                      struct mk_http_session *cs,
-                                      struct mk_http_request *sr);
+                                      struct mk_http1_session *cs,
+                                      struct mk_http1_request *sr);
 
 int fcgi_exit(struct fcgi_handler *handler);
 

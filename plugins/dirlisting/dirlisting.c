@@ -734,7 +734,7 @@ void cb_header_finish(struct mk_stream_input *in)
 }
 
 static int mk_dirhtml_init(struct mk_plugin *plugin,
-                           struct mk_http_session *cs, struct mk_http_request *sr)
+                           struct mk_http1_session *cs, struct mk_http1_request *sr)
 {
     DIR *dir;
     int len;
@@ -875,8 +875,8 @@ int mk_dirlisting_plugin_exit()
 }
 
 int mk_dirlisting_stage30(struct mk_plugin *plugin,
-                          struct mk_http_session *cs,
-                          struct mk_http_request *sr,
+                          struct mk_http1_session *cs,
+                          struct mk_http1_request *sr,
                           int n_param,
                           struct mk_list *params)
 {
@@ -908,8 +908,8 @@ int mk_dirlisting_stage30(struct mk_plugin *plugin,
 }
 
 int mk_dirlisting_stage30_hangup(struct mk_plugin *plugin,
-                                 struct mk_http_session *cs,
-                                 struct mk_http_request *sr)
+                                 struct mk_http1_session *cs,
+                                 struct mk_http1_request *sr)
 {
     (void) cs;
     (void) plugin;

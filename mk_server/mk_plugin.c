@@ -19,7 +19,7 @@
 
 #include <monkey/monkey.h>
 #include <monkey/mk_utils.h>
-#include <monkey/mk_http.h>
+#include <monkey/mk_http1.h>
 #include <monkey/mk_clock.h>
 #include <monkey/mk_plugin.h>
 #include <monkey/mk_mimetype.h>
@@ -290,8 +290,8 @@ void mk_plugin_api_init(struct mk_server *server)
     /* HTTP Callbacks */
     api->header_prepare = mk_plugin_header_prepare;
     api->header_add = mk_plugin_header_add;
-    api->header_get = mk_http_header_get;
-    api->header_set_http_status = mk_header_set_http_status;
+    api->header_get = mk_http1_header_get;
+    api->header_set_http_status = mk_http_header_set_http_status;
 
     /* Channels / Streams */
     api->channel_new   = mk_channel_new;
@@ -603,20 +603,20 @@ void mk_plugin_preworker_calls(struct mk_server *server)
     }
 }
 
-int mk_plugin_http_error(int http_status, struct mk_http_session *cs,
-                         struct mk_http_request *sr,
+int mk_plugin_http_error(int http_status, struct mk_http1_session *cs,
+                         struct mk_http1_request *sr,
                          struct mk_plugin *plugin)
 {
-    return mk_http_error(http_status, cs, sr, plugin->server_ctx);
+    return mk_http_error(http_status, &cs->base, &sr->base, plugin->server_ctx);
 }
 
 
 int mk_plugin_http_request_end(struct mk_plugin *plugin,
-                               struct mk_http_session *cs, int close)
+                               struct mk_http_base_session *cs, int close)
 {
     int ret;
     int con;
-    struct mk_http_request *sr;
+    struct mk_http_base_request *sr;
     struct mk_server *server = plugin->server_ctx;
 
     MK_TRACE("[FD %i] PLUGIN HTTP REQUEST END", cs->socket);
@@ -627,7 +627,7 @@ int mk_plugin_http_request_end(struct mk_plugin *plugin,
         return -1;
     }
 
-    sr = mk_list_entry_last(&cs->request_list, struct mk_http_request, _head);
+    sr = mk_list_entry_last(&cs->request_list, struct mk_http_base_request, _head);
     mk_plugin_stage_run_40(cs, sr, server);
 
     if (close == MK_TRUE) {
@@ -635,7 +635,7 @@ int mk_plugin_http_request_end(struct mk_plugin *plugin,
     }
 
     /* Let's check if we should ask to finalize the connection or not */
-    ret = mk_http_request_end(cs, server);
+    ret = mk_http1_request_end(cs->additional_data.http_1, server);
     MK_TRACE("[FD %i] HTTP session end = %i", cs->socket, ret);
     if (ret < 0) {
         con = mk_sched_event_close(cs->conn, mk_sched_get_thread_conf(),
@@ -693,18 +693,18 @@ int mk_plugin_sched_remove_client(int socket, struct mk_server *server)
 }
 
 int mk_plugin_header_prepare(struct mk_plugin *plugin,
-                             struct mk_http_session *cs,
-                             struct mk_http_request *sr)
+                             struct mk_http1_session *cs,
+                             struct mk_http1_request *sr)
 {
-    return mk_header_prepare(cs, sr, plugin->server_ctx);
+    return mk_http_header_prepare(&cs->base, &sr->base, plugin->server_ctx);
 }
 
 
-int mk_plugin_header_add(struct mk_http_request *sr, char *row, int len)
+int mk_plugin_header_add(struct mk_http1_request *sr, char *row, int len)
 {
     mk_bug(!sr);
 
-    if (!sr->headers._extra_rows) {
+    if (!sr->response._extra_rows) {
         /*
          * We allocate space for a fixed number of IOV entries:
          *
@@ -712,13 +712,13 @@ int mk_plugin_header_add(struct mk_http_request *sr, char *row, int len)
          *
          *  we use (MK_PLUGIN_HEADER_EXTRA_ROWS * 2) thinking in an ending CRLF
          */
-        sr->headers._extra_rows = mk_iov_create(MK_PLUGIN_HEADER_EXTRA_ROWS * 2, 0);
-        mk_bug(!sr->headers._extra_rows);
+        sr->response._extra_rows = mk_iov_create(MK_PLUGIN_HEADER_EXTRA_ROWS * 2, 0);
+        mk_bug(!sr->response._extra_rows);
     }
 
-    mk_iov_add(sr->headers._extra_rows, row, len,
+    mk_iov_add(sr->response._extra_rows, row, len,
                MK_FALSE);
-    mk_iov_add(sr->headers._extra_rows,
+    mk_iov_add(sr->response._extra_rows,
                mk_iov_crlf.data, mk_iov_crlf.len,
                MK_FALSE);
     return 0;

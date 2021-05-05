@@ -103,8 +103,8 @@ static int mk_fastcgi_config(char *path)
 
 /* Entry point for thread/co-routine */
 static void mk_fastcgi_stage30_thread(struct mk_plugin *plugin,
-                                      struct mk_http_session *cs,
-                                      struct mk_http_request *sr,
+                                      struct mk_http1_session *cs,
+                                      struct mk_http1_request *sr,
                                       int n_params,
                                       struct mk_list *params)
 {
@@ -122,8 +122,8 @@ static void mk_fastcgi_stage30_thread(struct mk_plugin *plugin,
 
 /* Callback handler */
 int mk_fastcgi_stage30(struct mk_plugin *plugin,
-                       struct mk_http_session *cs,
-                       struct mk_http_request *sr,
+                       struct mk_http1_session *cs,
+                       struct mk_http1_request *sr,
                        int n_params,
                        struct mk_list *params)
 {
@@ -151,8 +151,8 @@ int mk_fastcgi_stage30(struct mk_plugin *plugin,
 }
 
 int mk_fastcgi_stage30_hangup(struct mk_plugin *plugin,
-                              struct mk_http_session *cs,
-                              struct mk_http_request *sr)
+                              struct mk_http1_session *cs,
+                              struct mk_http1_request *sr)
 {
     (void) plugin;
     (void) cs;

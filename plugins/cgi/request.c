@@ -22,8 +22,8 @@
 
 struct cgi_request *cgi_req_create(int fd, int socket,
                                    struct mk_plugin *plugin,
-                                   struct mk_http_request *sr,
-                                   struct mk_http_session *cs)
+                                   struct mk_http1_request *sr,
+                                   struct mk_http1_session *cs)
 {
     struct cgi_request *cgi;
 

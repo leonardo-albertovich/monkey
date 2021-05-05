@@ -24,7 +24,8 @@
 #include <monkey/mk_kernel.h>
 #include <monkey/mk_config.h>
 #include <monkey/mk_socket.h>
-#include <monkey/mk_header.h>
+#include <monkey/mk_http_base.h>
+#include <monkey/mk_http_header.h>
 #include <monkey/mk_http_status.h>
 #include <monkey/mk_utils.h>
 #include <monkey/mk_info.h>
@@ -112,9 +113,9 @@ struct plugin_api
 
     /* HTTP request function */
     int   (*http_request_end) (struct mk_plugin *plugin,
-                               struct mk_http_session *cs, int close);
-    int   (*http_request_error) (int, struct mk_http_session *,
-                                 struct mk_http_request *, struct mk_plugin *);
+                               struct mk_http_base_session *cs, int close);
+    int   (*http_request_error) (int, struct mk_http1_session *,
+                                 struct mk_http1_request *, struct mk_plugin *);
 
     /* memory functions */
     void *(*mem_alloc) (const size_t size);
@@ -143,12 +144,12 @@ struct plugin_api
 
     /* header */
     int  (*header_prepare) (struct mk_plugin *,
-                            struct mk_http_session *,
-                            struct mk_http_request *);
-    struct mk_http_header *(*header_get) (int, struct mk_http_request *,
+                            struct mk_http1_session *,
+                            struct mk_http1_request *);
+    struct mk_http_header *(*header_get) (int, struct mk_http1_request *,
                                           const char *, unsigned int);
-    int  (*header_add) (struct mk_http_request *, char *row, int len);
-    void (*header_set_http_status) (struct mk_http_request *, int);
+    int  (*header_add) (struct mk_http1_request *, char *row, int len);
+    void (*header_set_http_status) (struct mk_http_base_request *, int);
 
     /* channel / stream handling */
     struct mk_stream *(*stream_new) (int, struct mk_channel *, void *, size_t,
@@ -293,14 +294,14 @@ struct mk_plugin {
 
 struct mk_plugin_stage {
     int (*stage10) (int);
-    int (*stage20) (struct mk_http_session *, struct mk_http_request *);
-    int (*stage30) (struct mk_plugin *, struct mk_http_session *,
-                    struct mk_http_request *, int, struct mk_list *);
-    void (*stage30_thread) (struct mk_plugin *, struct mk_http_session *,
-                            struct mk_http_request *, int, struct mk_list *);
-    int (*stage30_hangup) (struct mk_plugin *, struct mk_http_session *,
-                           struct mk_http_request *);
-    int (*stage40) (struct mk_http_session *, struct mk_http_request *);
+    int (*stage20) (struct mk_http_base_session *, struct mk_http_base_request *);
+    int (*stage30) (struct mk_plugin *, struct mk_http_base_session *,
+                    struct mk_http_base_request *, int, struct mk_list *);
+    void (*stage30_thread) (struct mk_plugin *, struct mk_http_base_session *,
+                            struct mk_http_base_request *, int, struct mk_list *);
+    int (*stage30_hangup) (struct mk_plugin *, struct mk_http_base_session *,
+                           struct mk_http_base_request *);
+    int (*stage40) (struct mk_http_base_session *, struct mk_http_base_request *);
     int (*stage50) (int);
 
     /* Just a reference to the parent plugin */
@@ -323,7 +324,7 @@ void mk_plugin_event_init_list();
 int mk_plugin_stage_run(unsigned int stage,
                         unsigned int socket,
                         struct mk_sched_conn *conx,
-                        struct mk_http_session *cs, struct mk_http_request *sr);
+                        struct mk_http1_session *cs, struct mk_http1_request *sr);
 
 void mk_plugin_core_process(struct mk_server *server);
 void mk_plugin_core_thread();
@@ -343,11 +344,11 @@ struct mk_plugin *mk_plugin_load(int type, const char *shortname,
                                  void *data, struct mk_server *server);
 
 void *mk_plugin_load_symbol(void *handler, const char *symbol);
-int mk_plugin_http_error(int http_status, struct mk_http_session *cs,
-                         struct mk_http_request *sr,
+int mk_plugin_http_error(int http_status, struct mk_http1_session *cs,
+                         struct mk_http1_request *sr,
                          struct mk_plugin *plugin);
 int mk_plugin_http_request_end(struct mk_plugin *plugin,
-                               struct mk_http_session *cs, int close);
+                               struct mk_http_base_session *cs, int close);
 
 /* Register functions */
 struct plugin *mk_plugin_register(struct plugin *p);
@@ -363,11 +364,11 @@ int mk_plugin_sched_remove_client(int socket, struct mk_server *server);
 
 
 int mk_plugin_header_prepare(struct mk_plugin *plugin,
-                             struct mk_http_session *cs,
-                             struct mk_http_request *sr);
+                             struct mk_http1_session *cs,
+                             struct mk_http1_request *sr);
 
-int mk_plugin_header_add(struct mk_http_request *sr, char *row, int len);
-int mk_plugin_header_get(struct mk_http_request *sr,
+int mk_plugin_header_add(struct mk_http1_request *sr, char *row, int len);
+int mk_plugin_header_get(struct mk_http1_request *sr,
                          mk_ptr_t query,
                          mk_ptr_t *result);
 

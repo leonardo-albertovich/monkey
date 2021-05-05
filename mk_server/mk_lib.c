@@ -30,6 +30,8 @@
 #include <monkey/mk_thread.h>
 #include <monkey/mk_scheduler.h>
 #include <monkey/mk_fifo.h>
+#include <monkey/mk_http_header.h>
+#include <monkey/mk_http1_header.h>
 
 #define config_eq(a, b) strcasecmp(a, b)
 
@@ -477,7 +479,6 @@ int mk_vhost_handler(mk_ctx_t *ctx, int vid, char *regex,
 {
     struct mk_vhost *vh;
     struct mk_vhost_handler *handler;
-    void (*_cb) (struct mk_http_request *, void *);
 
     /* Lookup the virtual host */
     vh = mk_vhost_lookup(ctx, vid);
@@ -485,8 +486,7 @@ int mk_vhost_handler(mk_ctx_t *ctx, int vid, char *regex,
         return -1;
     }
 
-    _cb = cb;
-    handler = mk_vhost_handler_match(regex, _cb, data);
+    handler = mk_vhost_handler_match(regex, cb, data);
     if (!handler) {
         return -1;
     }
@@ -507,7 +507,7 @@ int mk_http_flush(mk_request_t *req)
 
 int mk_http_status(mk_request_t *req, int status)
 {
-    req->headers.status = status;
+    req->response.status = status;
     return 0;
 }
 
@@ -519,9 +519,9 @@ int mk_http_header(mk_request_t *req,
     int pos;
     int len;
     char *buf;
-    struct response_headers *h;
+    struct mk_http1_response *h;
 
-    h = &req->headers;
+    h = req->response.additional_data.http_1;
     if (!h->_extra_rows) {
         h->_extra_rows = mk_iov_create(MK_PLUGIN_HEADER_EXTRA_ROWS * 2, 0);
         if (!h->_extra_rows) {
@@ -604,15 +604,16 @@ static int headers_setup(mk_request_t *req)
      * Let's keep it simple for now: if the headers have not been sent, do it
      * now and then send the body content just queued.
      */
-    if (req->headers.sent == MK_FALSE) {
+    if (req->response.sent == MK_FALSE) {
         /* Force chunked-transfer encoding */
         if (req->protocol == MK_HTTP_PROTOCOL_11) {
-            req->headers.transfer_encoding = MK_HEADER_TE_TYPE_CHUNKED;
+            req->response.transfer_encoding = MK_HEADER_TE_TYPE_CHUNKED;
         }
         else {
-            req->headers.content_length = -1;
+            req->response.content_length = -1;
         }
-        mk_header_prepare(req->session, req, req->session->server);
+
+        mk_http_header_prepare(req->session, req, req->session->server);
     }
     return 0;
 }
@@ -631,7 +632,7 @@ int mk_http_send(mk_request_t *req, char *buf, size_t len,
         return -1;
     }
 
-    if (req->headers.status == -1) {
+    if (req->response.status == -1) {
         /* Cannot append data if the status have not been set */
         mk_err("HTTP: set the response status first");
         return -1;
@@ -690,7 +691,7 @@ int mk_http_done(mk_request_t *req)
     /* Validate if the response headers are ready */
     headers_setup(req);
 
-    if (req->headers.transfer_encoding == MK_HEADER_TE_TYPE_CHUNKED) {
+    if (req->response.transfer_encoding == MK_HEADER_TE_TYPE_CHUNKED) {
         /* Append end-of-chunk bytes */
         mk_http_send(req, NULL, 0, NULL);
     }

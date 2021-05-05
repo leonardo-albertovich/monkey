@@ -20,7 +20,7 @@
 #ifndef MK_HTTP_THREAD_H
 #define MK_HTTP_THREAD_H
 
-#include <monkey/mk_http.h>
+#include <monkey/mk_http1.h>
 #include <monkey/mk_thread.h>
 #include <monkey/mk_vhost.h>
 
@@ -29,8 +29,8 @@
 
 struct mk_http_thread {
     int close;                        /* Close TCP connection ?  */
-    struct mk_http_session *session;  /* HTTP session            */
-    struct mk_http_request *request;  /* HTTP request            */
+    struct mk_http1_session *session;  /* HTTP session            */
+    struct mk_http1_request *request;  /* HTTP request            */
     struct mk_thread       *parent;   /* Parent thread           */
     struct mk_list _head;             /* Link to worker->threads */
 };
@@ -42,8 +42,8 @@ static MK_INLINE void mk_http_thread_resume(struct mk_http_thread *mth)
 
 struct mk_http_thread *mk_http_thread_create(int type,
                                              struct mk_vhost_handler *handler,
-                                             struct mk_http_session *session,
-                                             struct mk_http_request *request,
+                                             struct mk_http1_session *session,
+                                             struct mk_http1_request *request,
                                              int n_params,
                                              struct mk_list *params);
 int mk_http_thread_destroy(struct mk_http_thread *mth);

@@ -31,7 +31,7 @@
 #include <monkey/mk_utils.h>
 #include <monkey/mk_config.h>
 #include <monkey/mk_core.h>
-#include <monkey/mk_http.h>
+#include <monkey/mk_http1.h>
 
 struct mk_mimetype *mimetype_default;
 

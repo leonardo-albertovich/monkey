@@ -39,8 +39,8 @@ static inline int mk_plugin_stage_run_10(int socket, struct mk_server *server)
     return -1;
 }
 
-static inline int mk_plugin_stage_run_20(struct mk_http_session *cs,
-                                         struct mk_http_request *sr,
+static inline int mk_plugin_stage_run_20(struct mk_http_base_session *cs,
+                                         struct mk_http_base_request *sr,
                                          struct mk_server *server)
 {
     int ret;
@@ -60,8 +60,8 @@ static inline int mk_plugin_stage_run_20(struct mk_http_session *cs,
     return -1;
 }
 
-static inline int mk_plugin_stage_run_40(struct mk_http_session *cs,
-                                         struct mk_http_request *sr,
+static inline int mk_plugin_stage_run_40(struct mk_http_base_session *cs,
+                                         struct mk_http_base_request *sr,
                                          struct mk_server *server)
 {
     struct mk_list *head;

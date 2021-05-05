@@ -489,7 +489,7 @@ void mk_logger_worker_init()
     pthread_setspecific(cache_ip_str, (void *) ip_str);
 }
 
-int mk_logger_stage40(struct mk_http_session *cs, struct mk_http_request *sr)
+int mk_logger_stage40(struct mk_http1_session *cs, struct mk_http1_request *sr)
 {
     int i, http_status, ret, tmp;
     int array_len = ARRAY_SIZE(response_codes);

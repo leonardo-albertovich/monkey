@@ -28,7 +28,7 @@
 #include <monkey/mk_scheduler.h>
 #include <monkey/mk_core.h>
 #include <monkey/mk_fifo.h>
-#include <monkey/mk_http_thread.h>
+#include <monkey/mk_http1_thread.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>

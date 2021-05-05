@@ -341,8 +341,8 @@ int mk_mandril_stage10(int socket)
 }
 
 int mk_mandril_stage30(struct mk_plugin *p,
-                       struct mk_http_session *cs,
-                       struct mk_http_request *sr,
+                       struct mk_http1_session *cs,
+                       struct mk_http1_request *sr,
                        int n_params,
                        struct mk_list *params)
 {

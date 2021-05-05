@@ -21,8 +21,8 @@
 #define MK_HTTP2_H
 
 #include <monkey/mk_core.h>
-// #include <stdint.h>
 #include <monkey/mk_stream.h>
+#include <monkey/mk_http_base.h>
 #include <monkey/mk_http2_settings.h>
 
 /* Constants */ 
@@ -125,6 +125,8 @@ static inline void mk_http2_bitenc_stream_id(uint8_t *o, uint32_t v) {
 
 
 struct mk_http2_session {
+    struct mk_http_base_session base;
+
     int status;
 
     /* Buffer used to read data */
@@ -157,6 +159,10 @@ struct mk_http2_session {
 };
 
 int mk_http2_request_end(struct mk_http2_session *cs, struct mk_server *server);
+int mk_http2_error(int http_status, 
+                   struct mk_http2_session *cs,
+                   struct mk_http2_request *sr,
+                   struct mk_server *server);
 
 #endif
 

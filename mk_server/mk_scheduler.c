@@ -33,7 +33,7 @@
 #include <monkey/mk_linuxtrace.h>
 #include <monkey/mk_server.h>
 #include <monkey/mk_plugin_stage.h>
-#include <monkey/mk_http_thread.h>
+#include <monkey/mk_http1_thread.h>
 
 #include <signal.h>
 #include <sys/syscall.h>
@@ -610,7 +610,7 @@ static int sched_thread_cleanup(struct mk_sched_worker *sched,
 
     mk_list_foreach_safe(head, tmp, list) {
         mth = mk_list_entry(head, struct mk_http_thread, _head);
-        // mk_http_thread_destroy(mth);
+        mk_http_thread_destroy(mth);
         c++;
     }
 
@@ -653,7 +653,7 @@ int mk_sched_threads_destroy_conn(struct mk_sched_worker *sched,
 
     mk_list_foreach_safe(head, tmp, &sched->threads) {
         mth = mk_list_entry(head, struct mk_http_thread, _head);
-        if (mth->session->conn == conn) {
+        if (mth->session->base.conn == conn) {
             mk_http_thread_destroy(mth);
             c++;
         }

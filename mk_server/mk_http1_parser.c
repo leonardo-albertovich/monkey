@@ -26,8 +26,8 @@
 #include <stdint.h>
 #include <limits.h>
 
-#include <monkey/mk_http.h>
-#include <monkey/mk_http_parser.h>
+#include <monkey/mk_http1.h>
+#include <monkey/mk_http1_parser.h>
 #include <monkey/mk_http_status.h>
 
 #define mark_end()                              \
@@ -105,7 +105,7 @@ static inline int str_searchr(char *buf, char c, int len)
     return -1;
 }
 
-static inline int method_lookup(struct mk_http_request *req,
+static inline int method_lookup(struct mk_http1_request *req,
                                 struct mk_http_parser *p, char *buffer)
 {
     int i = 0;
@@ -115,16 +115,16 @@ static inline int method_lookup(struct mk_http_request *req,
     len = field_len();
 
     /* Point the buffer */
-    req->method = MK_METHOD_UNKNOWN;
-    req->method_p.data = buffer + p->start;
-    req->method_p.len  = len;
+    req->base.method = MK_METHOD_UNKNOWN;
+    req->base.method_p.data = buffer + p->start;
+    req->base.method_p.len  = len;
 
     if (p->method >= 0) {
         if (strncmp(buffer + p->start + 1,
                     mk_methods_table[p->method].name + 1,
                     len - 1) == 0) {
-            req->method = p->method;
-            return req->method;
+            req->base.method = p->method;
+            return req->base.method;
         }
     }
 
@@ -134,7 +134,7 @@ static inline int method_lookup(struct mk_http_request *req,
         }
 
         if (strncmp(buffer + p->start, mk_methods_table[i].name, len) == 0) {
-            req->method = i;
+            req->base.method = i;
             return i;
         }
     }
@@ -344,21 +344,23 @@ static inline int header_lookup(struct mk_http_parser *p, char *buffer)
  * OK. Here we perform some extra validations mostly based on some logic
  * and protocol requirements according to the data received.
  */
-static inline int mk_http_parser_ok(struct mk_http_request *req,
+static inline int mk_http_parser_ok(struct mk_http1_request *req,
                                     struct mk_http_parser *p,
                                     struct mk_server *server)
 {
     /* Validate HTTP Version */
-    if (req->protocol == MK_HTTP_PROTOCOL_UNKNOWN) {
-        mk_http_error(MK_SERVER_HTTP_VERSION_UNSUP, req->session, req, server);
+    if (req->base.protocol == MK_HTTP_PROTOCOL_UNKNOWN) {
+        mk_http1_error(MK_SERVER_HTTP_VERSION_UNSUP, 
+                       req->base.session->additional_data.http_1, req, server);
         return MK_HTTP_PARSER_ERROR;
     }
 
     /* POST checks */
-    if (req->method == MK_METHOD_POST || req->method == MK_METHOD_PUT) {
+    if (req->base.method == MK_METHOD_POST || req->base.method == MK_METHOD_PUT) {
         /* validate Content-Length exists */
         if (p->headers[MK_HEADER_CONTENT_LENGTH].type == 0) {
-            mk_http_error(MK_CLIENT_LENGTH_REQUIRED, req->session, req, server);
+            mk_http1_error(MK_CLIENT_LENGTH_REQUIRED, 
+                           req->base.session->additional_data.http_1, req, server);
             return MK_HTTP_PARSER_ERROR;
         }
     }
@@ -370,7 +372,7 @@ static inline int mk_http_parser_ok(struct mk_http_request *req,
  * Parse the protocol and point relevant fields, don't take logic decisions
  * based on this, just parse to locate things.
  */
-int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
+int mk_http_parser(struct mk_http1_request *req, struct mk_http_parser *p,
                    char *buffer, int buf_len, struct mk_server *server)
 {
     int s;
@@ -445,18 +447,19 @@ int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
                     if (field_len() < 1) {
                         return MK_HTTP_PARSER_ERROR;
                     }
-                    request_set(&req->uri, p, buffer);
+                    request_set(&req->base.uri, p, buffer);
                     start_next();
                 }
                 else if (buffer[p->i] == '?') {
                     mark_end();
-                    request_set(&req->uri, p, buffer);
+                    request_set(&req->base.uri, p, buffer);
                     p->status = MK_ST_REQ_QUERY_STRING;
                     start_next();
                 }
                 else if (buffer[p->i] == '\r' || buffer[p->i] == '\n') {
-                    mk_http_error(MK_CLIENT_BAD_REQUEST, req->session,
-                                  req, server);
+                    mk_http1_error(MK_CLIENT_BAD_REQUEST, 
+                                   req->base.session->additional_data.http_1,
+                                   req, server);
                     return MK_HTTP_PARSER_ERROR;
                 }
                 break;
@@ -464,13 +467,14 @@ int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
                 char_lookup(buffer, ' ', len, p);
                 if (buffer[p->i] == ' ') {
                     mark_end();
-                    request_set(&req->query_string, p, buffer);
+                    request_set(&req->base.query_string, p, buffer);
                     p->status = MK_ST_REQ_PROT_VERSION;
                     start_next();
                 }
                 else if (buffer[p->i] == '\r' || buffer[p->i] == '\n') {
-                    mk_http_error(MK_CLIENT_BAD_REQUEST, req->session,
-                                  req, server);
+                    mk_http1_error(MK_CLIENT_BAD_REQUEST, 
+                                   req->base.session->additional_data.http_1,
+                                   req, server);
                     return MK_HTTP_PARSER_ERROR;
                 }
                 break;
@@ -493,13 +497,13 @@ int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
                     buffer[tmp + 5] == '1' &&
                     buffer[tmp + 6] == '.') {
 
-                    request_set(&req->protocol_p, p, buffer);
-                    req->protocol_p.len = 8;
+                    request_set(&req->base.protocol_p, p, buffer);
+                    req->base.protocol_p.len = 8;
                     mk_http_set_minor_version(buffer[tmp + 7]);
                 }
                 else {
-                    mk_http_error(MK_SERVER_HTTP_VERSION_UNSUP,
-                                  req->session, req, server);
+                    mk_http1_error(MK_SERVER_HTTP_VERSION_UNSUP,
+                                   req->base.session->additional_data.http_1, req, server);
                     return MK_HTTP_PARSER_ERROR;
                 }
                 p->status = MK_ST_FIRST_CONTINUE;
@@ -649,7 +653,9 @@ int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
                     ret = header_lookup(p, buffer);
                     if (ret != 0) {
                         if (ret < -1) {
-                            mk_http_error(-ret, req->session, req, server);
+                            mk_http1_error(-ret, 
+                                           req->base.session->additional_data.http_1, 
+                                           req, server);
                         }
                         return MK_HTTP_PARSER_ERROR;
                     }
@@ -713,8 +719,8 @@ int mk_http_parser(struct mk_http_request *req, struct mk_http_parser *p,
 
                 /* Cut off */
                 p->i += p->body_received;
-                req->data.len  = p->body_received;
-                req->data.data = (buffer + p->start);
+                req->base.data.len  = p->body_received;
+                req->base.data.data = (buffer + p->start);
             }
             return mk_http_parser_ok(req, p, server);
         }

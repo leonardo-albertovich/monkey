@@ -27,7 +27,7 @@
 #include <monkey/mk_vhost.h>
 #include <monkey/mk_config.h>
 #include <monkey/mk_fifo.h>
-#include <monkey/mk_http_internal.h>
+#include <monkey/mk_http1_internal.h>
 
 #include <pthread.h>
 
@@ -39,8 +39,8 @@ struct mk_lib_ctx {
 
 typedef struct mk_fifo_queue mk_mq_t;
 typedef struct mk_lib_ctx mk_ctx_t;
-typedef struct mk_http_request mk_request_t;
-typedef struct mk_http_session mk_session_t;
+typedef struct mk_http_base_request mk_request_t;
+typedef struct mk_http1_session mk_session_t;
 
 MK_EXPORT int mk_start(mk_ctx_t *ctx);
 MK_EXPORT int mk_stop(mk_ctx_t *ctx);

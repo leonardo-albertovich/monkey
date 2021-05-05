@@ -6,15 +6,17 @@ set(src
   mk_fifo.c
   mk_mimetype.c
   mk_vhost.c
-  mk_header.c
   mk_config.c
   mk_user.c
   mk_utils.c
   mk_stream.c
   mk_scheduler.c
-  mk_http.c
-  mk_http_parser.c
-  mk_http_thread.c
+  mk_http_base.c
+  mk_http_header.c
+  mk_http1.c
+  mk_http1_parser.c
+  mk_http1_thread.c
+  mk_http1_header.c
   mk_socket.c
   mk_net.c
   mk_clock.c

@@ -17,21 +17,10 @@
  *  limitations under the License.
  */
 
-#ifndef MK_USER_H
-#define MK_USER_H
+#ifndef MK_HTTP_INTERNAL_H
+#define MK_HTTP_INTERNAL_H
 
-#include "mk_http_base.h"
-// #include "mk_http1.h"
-// #include "mk_http1_internal.h"
-
-/* User home string */
-#define MK_USER_HOME '~'
-
-/* user.c */
-int mk_user_init(struct mk_http_base_session *cs, 
-                 struct mk_http_base_request *sr,
-                 struct mk_server *server);
-int mk_user_set_uidgid(struct mk_server *server);
-int mk_user_undo_uidgid(struct mk_server *server);
+#include <monkey/mk_http1_response.h>
+#include <monkey/mk_http1_request.h>
 
 #endif

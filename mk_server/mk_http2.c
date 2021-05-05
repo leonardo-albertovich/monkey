@@ -35,7 +35,9 @@
 #include <monkey/mk_http2_frame_handlers.h>
 #include <monkey/mk_http2_dynamic_table.h>
 #include <monkey/mk_http2_header_table.h>
-#include <monkey/mk_http_thread.h>
+#include <monkey/mk_http_header.h>
+#include <monkey/mk_http1_header.h>
+#include <monkey/mk_http1_thread.h>
 #include <monkey/mk_header.h>
 #include <monkey/mk_plugin.h>
 #include <monkey/mk_utils.h>
@@ -58,9 +60,14 @@ static inline void buffer_consume(struct mk_http2_session *h2s, int bytes)
 
 /* Enqueue an error response. This function always returns MK_EXIT_OK */
 /* TODO : Define and implement this function properly */
-static inline int mk_http2_error(int error_code, struct mk_server *server)
+int mk_http2_error(int http_status, 
+                   struct mk_http2_session *cs,
+                   struct mk_http2_request *sr,
+                   struct mk_server *server)
 {
-    (void) error_code;
+    (void) http_status;
+    (void) cs;
+    (void) sr;
     (void) server;
 
     return 0;
@@ -140,7 +147,7 @@ static int mk_http2_range_parse(struct mk_http2_request *sr)
 {
 //    int eq_pos, sep_pos, len;
 //    char *buffer = 0;
-//    struct response_headers *sh;
+//    struct mk_http1_response_headers *sh;
 //
 //    if (!sr->range.data)
 //        return -1;
@@ -603,6 +610,8 @@ int mk_http2_handle_request(struct mk_http2_request *request)
 
 int mk_http2_handle_request(struct mk_http2_request *request)
 {
+    (void) request;
+/*
     size_t                        compressed_header_buffer_length;
     uint8_t                      *compressed_header_buffer;
     size_t                        output_buffer_length;
@@ -619,7 +628,7 @@ int mk_http2_handle_request(struct mk_http2_request *request)
     if (NULL == headers) {
         return -1;
     }
-
+*/
     // mk_http2_header_table_entry_create_debug(headers, ":status", "200");
     // mk_http2_header_table_entry_create_debug(headers, "date", "Wed, 14 Apr 2021 21:02:56 GMT");
     // mk_http2_header_table_entry_create_debug(headers, "expires", "-1");
@@ -634,7 +643,7 @@ int mk_http2_handle_request(struct mk_http2_request *request)
     // mk_http2_header_table_entry_create_debug(headers, "set-cookie", "1P_JAR=2021-04-14-21; expires=Fri, 14-May-2021 21:02:56 GMT; path=/; domain=.google.com; Secure");
     // mk_http2_header_table_entry_create_debug(headers, "set-cookie", "NID=213=G9imymfgCAVfIINZ6fBouozumANP6dE__V7O8lhgr9AUOZdAyu-muCS0kInZYEXhMoyjGmmwMORq0DvMVdsGHvg8e-EFgEjZ_wuIAXweqrYzuJWHpjIWxa3UlNDG85hYcXel3g2DIMw5sfUZPqj1sF4mq85lNrUj0PnkaO2__sw; expires=Thu, 14-Oct-2021 21:02:56 GMT; path=/; domain=.google.com; HttpOnly");
     // mk_http2_header_table_entry_create_debug(headers, "alt-svc", "h3-29=\":443\"; ma=2592000,h3-T051=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\"");
-
+/*
 
     mk_http2_header_table_entry_create_debug(headers, 
                                              ":status", 
@@ -647,7 +656,6 @@ int mk_http2_handle_request(struct mk_http2_request *request)
     mk_http2_header_table_entry_create_debug(headers, 
                                              "content-length", 
                                              "16");
-
     
     result = mk_http2_hpack_compress_stream_headers(h2s,
                                                     request->stream, 
@@ -691,7 +699,6 @@ printf("RESPONDING ON STREAM ID : %d\n", request->stream->id);
 
     printf("RESPONSE HEADERS FRAME SENT");
 
-sleep(1000);
 sleep(1);
 
     memset(&frame, 0, sizeof(struct mk_http2_frame));
@@ -762,7 +769,7 @@ sleep(1);
     printf("RESPONSE RST STREAM FRAME SENT");
 
 sleep(1000);
-
+*/
 exit(0);
 
 }
@@ -803,7 +810,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
             MK_TRACE("[FD %i] First frame received should be a settings frame",
                      conn->event.fd);
 
-            mk_http2_error(MK_HTTP2_PROTOCOL_ERROR, server);
+            mk_http2_error(MK_HTTP2_PROTOCOL_ERROR, h2s, NULL, server);
 
             return MK_HTTP2_FRAME_ERROR;
         }
@@ -815,7 +822,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
                      " frame",
                      conn->event.fd);
 
-            mk_http2_error(MK_HTTP2_PROTOCOL_ERROR, server);
+            mk_http2_error(MK_HTTP2_PROTOCOL_ERROR, h2s, NULL, server);
 
             return MK_HTTP2_FRAME_ERROR;
         }
@@ -827,7 +834,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
                      frame.stream_id,
                      h2s->expected_continuation_stream);
 
-            mk_http2_error(MK_HTTP2_PROTOCOL_ERROR, server);
+            mk_http2_error(MK_HTTP2_PROTOCOL_ERROR, h2s, NULL, server);
 
             return MK_HTTP2_FRAME_ERROR;
         }
@@ -946,7 +953,7 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
     printf("Frame error? %d\n", result);
 
     if (MK_HTTP2_NO_ERROR != result) {
-        mk_http2_error(result, server);
+        mk_http2_error(result, h2s, NULL, server);
 
         return MK_HTTP2_FRAME_ERROR;
     }
@@ -986,15 +993,20 @@ static inline int mk_http2_frame_run(struct mk_sched_conn *conn,
  */
 static int mk_http2_upgrade(void *cs, void *sr, struct mk_server *server)
 {
-    struct mk_http_session *s = cs;
-    struct mk_http_request *r = sr;
+    struct mk_http_base_session *s = cs;
+    struct mk_http_base_request *r = sr;
     struct mk_http2_session *h2s;
 
-    mk_header_set_http_status(r, MK_INFO_SWITCH_PROTOCOL);
-    r->headers.connection = MK_HEADER_CONN_UPGRADED;
-    r->headers.upgrade = MK_HEADER_UPGRADED_H2C;
-    mk_header_prepare(s, r, server);
+    mk_http_header_set_http_status(r, MK_INFO_SWITCH_PROTOCOL);
+    r->response.additional_data.http_1->connection = MK_HEADER_CONN_UPGRADED;
+    r->response.additional_data.http_1->upgrade = MK_HEADER_UPGRADED_H2C;
+    mk_http_header_prepare(s, r, server);
 
+    /* This is wrong, the allocated buffer corresponds to the http 1.x session and 
+     * needs to be reallocated, however, it needs to be reengineered since a reallocation
+     * might not be possible because it's linked to the connection object which is 
+     * referenced in other places.
+     */
     h2s = mk_http2_session_get(s->conn);
 
     h2s->status = MK_HTTP2_UPGRADED;
@@ -1022,6 +1034,10 @@ static int mk_http2_sched_read(struct mk_sched_conn *conn,
 
     if (MK_HTTP2_UNINITIALIZED == h2s->status ||
        MK_HTTP2_UPGRADED == h2s->status) {
+        /* Set up the link between the base and specific objects */
+        h2s->base.additional_data.http_2 = h2s;
+        h2s->base.protocol_version = HTTP_2;
+
         h2s->server = server;
         h2s->connection = conn;
 

@@ -20,7 +20,7 @@
 #ifndef MK_HTTP2_THREAD_H
 #define MK_HTTP2_THREAD_H
 
-#include <monkey/mk_http.h>
+#include <monkey/mk_http1.h>
 #include <monkey/mk_thread.h>
 #include <monkey/mk_vhost.h>
 

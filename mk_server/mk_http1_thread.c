@@ -22,7 +22,7 @@
 #include <monkey/mk_thread.h>
 #include <monkey/mk_net.h>
 #include <monkey/mk_vhost.h>
-#include <monkey/mk_http_thread.h>
+#include <monkey/mk_http1_thread.h>
 
 #include <stdlib.h>
 
@@ -35,8 +35,8 @@
 struct mk_http_libco_params {
     int type;
     struct mk_vhost_handler *handler;
-    struct mk_http_session *session;
-    struct mk_http_request *request;
+    struct mk_http1_session *session;
+    struct mk_http1_request *request;
     int n_params;
     struct mk_list *params;
     struct mk_thread *th;
@@ -51,8 +51,8 @@ static inline void thread_cb_init_vars()
     int close;
     int type = libco_param.type;
     struct mk_vhost_handler *handler = libco_param.handler;
-    struct mk_http_session *session = libco_param.session;
-    struct mk_http_request *request = libco_param.request;
+    struct mk_http1_session *session = libco_param.session;
+    struct mk_http1_request *request = libco_param.request;
     struct mk_thread *th = libco_param.th;
     struct mk_http_thread *mth;
     //struct mk_plugin *plugin;
@@ -66,7 +66,7 @@ static inline void thread_cb_init_vars()
 
     if (type == MK_HTTP_THREAD_LIB) {
         /* Invoke the handler callback */
-        handler->cb(request, handler->data);
+        handler->cb(&request->base, handler->data);
 
         /*
          * Once the callback finished, we need to sanitize the connection
@@ -76,7 +76,7 @@ static inline void thread_cb_init_vars()
         struct mk_sched_worker *sched;
         struct mk_channel *channel;
 
-        channel = request->session->channel;
+        channel = request->base.session->channel;
         sched = mk_sched_get_thread_conf();
 
         MK_EVENT_NEW(channel->event);
@@ -89,13 +89,13 @@ static inline void thread_cb_init_vars()
         }
 
         /* Save temporal session */
-        mth = request->thread;
+        mth = request->base.thread;
 
         /*
          * Finalize request internally, if ret == -1 means we should
          * ask to shutdown the connection.
          */
-        ret = mk_http_request_end(session, session->server);
+        ret = mk_http1_request_end(session, session->base.server);
         if (ret == -1) {
             close = MK_TRUE;
         }
@@ -115,8 +115,8 @@ static inline void thread_cb_init_vars()
 static inline void thread_params_set(struct mk_thread *th,
                                      int type,
                                      struct mk_vhost_handler *handler,
-                                     struct mk_http_session *session,
-                                     struct mk_http_request *request,
+                                     struct mk_http1_session *session,
+                                     struct mk_http1_request *request,
                                      int n_params,
                                      struct mk_list *params)
 {
@@ -134,8 +134,8 @@ static inline void thread_params_set(struct mk_thread *th,
 
 struct mk_http_thread *mk_http_thread_create(int type,
                                              struct mk_vhost_handler *handler,
-                                             struct mk_http_session *session,
-                                             struct mk_http_request *request,
+                                             struct mk_http1_session *session,
+                                             struct mk_http1_request *request,
                                              int n_params,
                                              struct mk_list *params)
 {
@@ -163,7 +163,7 @@ struct mk_http_thread *mk_http_thread_create(int type,
     mth->request = request;
     mth->parent  = th;
     mth->close   = MK_FALSE;
-    request->thread = mth;
+    request->base.thread = mth;
     mk_list_add(&mth->_head, &sched->threads);
 
     th->caller = co_active();
@@ -210,7 +210,7 @@ int mk_http_thread_destroy(struct mk_http_thread *mth)
 
     /* release original memory context */
     th = mth->parent;
-    mth->session->channel->event->type = MK_EVENT_CONNECTION;
+    mth->session->base.channel->event->type = MK_EVENT_CONNECTION;
     mk_thread_destroy(th);
 
     return 0;

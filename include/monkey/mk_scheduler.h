@@ -80,7 +80,7 @@ struct mk_sched_worker
     /* store the memory page size (_SC_PAGESIZE) */
     unsigned int mem_pagesize;
 
-    struct mk_http_session *request_handler;
+    struct mk_http1_session *request_handler;
 
 
     struct mk_list event_free_queue;
@@ -180,7 +180,7 @@ struct mk_sched_handler
      * allocations and connection lookups the sched context is good enough
      * to help on this, e.g:
      *
-     *  t_size = (sizeof(struct mk_sched_conn) + (sizeof(struct mk_http_session);
+     *  t_size = (sizeof(struct mk_sched_conn) + (sizeof(struct mk_http1_session);
      *  conn = malloc(t_size);
      */
     int sched_extra_size;

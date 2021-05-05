@@ -22,7 +22,8 @@
 
 #include <monkey/mk_core.h>
 #include <monkey/mk_config.h>
-#include <monkey/mk_http.h>
+#include <monkey/mk_http_base.h>
+#include <monkey/mk_http1.h>
 #include <monkey/mk_http2_request.h>
 
 /* Custom error page */
@@ -44,7 +45,7 @@ struct mk_vhost_handler {
     int n_params;                          /* number of parameters           */
 
     /* optional callback and opaque data for lib mode */
-    void (*cb) (struct mk_http_request *, void *);
+    void (*cb) (struct mk_http_base_request *, void *);
     void *data;
 
     struct mk_list params;                 /* parameters given by config     */
@@ -112,13 +113,13 @@ void mk_vhost_init(char *path, struct mk_server *server);
 
 int mk_vhost_fdt_worker_init(struct mk_server *server);
 int mk_vhost_fdt_worker_exit(struct mk_server *server);
-int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server);
-int mk_vhost_open(struct mk_http_request *sr, struct mk_server *server);
-int mk_vhost_close(struct mk_http_request *sr, struct mk_server *server);
+// int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server);
+int mk_vhost_open(struct mk_http_base_request *sr, struct mk_server *server);
+int mk_vhost_close(struct mk_http_base_request *sr, struct mk_server *server);
 void mk_vhost_free_all(struct mk_server *server);
 int mk_vhost_map_handlers(struct mk_server *server);
 struct mk_vhost_handler *mk_vhost_handler_match(char *match,
-                                                void (*cb)(struct mk_http_request *,
+                                                void (*cb)(struct mk_http_base_request *,
                                                            void *),
                                                 void *data);
 

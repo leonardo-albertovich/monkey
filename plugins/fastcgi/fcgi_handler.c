@@ -883,8 +883,8 @@ static int fastcgi_on_connect(struct fcgi_handler *handler)
 }
 
 struct fcgi_handler *fcgi_handler_new(struct mk_plugin *plugin,
-                                      struct mk_http_session *cs,
-                                      struct mk_http_request *sr)
+                                      struct mk_http1_session *cs,
+                                      struct mk_http1_request *sr)
 {
     int ret;
     int entries;

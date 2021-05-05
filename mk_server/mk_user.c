@@ -19,7 +19,7 @@
 
 #include <monkey/monkey.h>
 #include <monkey/mk_user.h>
-#include <monkey/mk_http.h>
+#include <monkey/mk_http1.h>
 #include <monkey/mk_http_status.h>
 #include <monkey/mk_core.h>
 #include <monkey/mk_utils.h>
@@ -30,7 +30,8 @@
 #include <sys/types.h>
 #include <grp.h>
 
-int mk_user_init(struct mk_http_session *cs, struct mk_http_request *sr,
+int mk_user_init(struct mk_http_base_session *cs, 
+                 struct mk_http_base_request *sr,
                  struct mk_server *server)
 {
     int limit;

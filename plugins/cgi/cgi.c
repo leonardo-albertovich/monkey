@@ -101,8 +101,8 @@ static void cgi_write_post(void *p)
 
 static int do_cgi(const char *const __restrict__ file,
                   const char *const __restrict__ url,
-                  struct mk_http_request *sr,
-                  struct mk_http_session *cs,
+                  struct mk_http1_request *sr,
+                  struct mk_http1_session *cs,
                   struct mk_plugin *plugin,
                   char *interpreter,
                   char *mimetype)
@@ -394,8 +394,8 @@ int mk_cgi_plugin_exit()
 }
 
 int mk_cgi_stage30(struct mk_plugin *plugin,
-                   struct mk_http_session *cs,
-                   struct mk_http_request *sr,
+                   struct mk_http1_session *cs,
+                   struct mk_http1_request *sr,
                    int n_params,
                    struct mk_list *params)
 {
@@ -448,8 +448,8 @@ int mk_cgi_stage30(struct mk_plugin *plugin,
  * callback is triggered by the Monkey Scheduler
  */
 int mk_cgi_stage30_hangup(struct mk_plugin *plugin,
-                          struct mk_http_session *cs,
-                          struct mk_http_request *sr)
+                          struct mk_http1_session *cs,
+                          struct mk_http1_request *sr)
 {
     struct cgi_request *r;
     (void) sr;

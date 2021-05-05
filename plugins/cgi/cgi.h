@@ -70,8 +70,8 @@ struct cgi_request {
     struct mk_list _head;
 
     struct mk_plugin *plugin;
-    struct mk_http_request *sr;
-    struct mk_http_session *cs;
+    struct mk_http1_request *sr;
+    struct mk_http1_session *cs;
 
     unsigned int in_len;
 
@@ -97,8 +97,8 @@ int channel_write(struct cgi_request *r, void *buf, size_t count);
 
 struct cgi_request *cgi_req_create(int fd, int socket,
                                    struct mk_plugin *plugin,
-                                   struct mk_http_request *sr,
-                                   struct mk_http_session *cs);
+                                   struct mk_http1_request *sr,
+                                   struct mk_http1_session *cs);
 void cgi_req_add(struct cgi_request *r);
 int cgi_req_del(struct cgi_request *r);
 

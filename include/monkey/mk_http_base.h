@@ -17,90 +17,97 @@
  *  limitations under the License.
  */
 
-#ifndef MK_HTTP_INTERNAL_H
-#define MK_HTTP_INTERNAL_H
+#ifndef MK_HTTP_BASE_H
+#define MK_HTTP_BASE_H
 
+#include <monkey/mk_core.h>
 #include <monkey/mk_stream.h>
 
-#define MK_HEADER_IOV         32
-#define MK_HEADER_ETAG_SIZE   32
+/* HTTP 0.9 */
+#define HTTP_0 0
+/* HTTP 1.x */
+#define HTTP_1 1
+/* HTTP 2   */
+#define HTTP_2 2
 
-struct response_headers
+struct mk_http1_request;
+struct mk_http2_request;
+
+struct mk_http1_session;
+struct mk_http2_session;
+
+struct mk_http1_response;
+struct mk_http2_response;
+
+struct mk_http_base_session
 {
-    int status;
-
-    /* Connection flag, if equal -1, the connection header is ommited */
-    int connection;
-
     /*
-     * If some plugins wants to set a customized HTTP status, here
-     * is the 'how and where'
+     * The first field of the struct appended to the sched_conn memory
+     * space needs to be an integer, the scheduler will set this flag
+     * to MK_FALSE to indicate it was just created. This work as a helper
+     * to the protocol handler.
+     *
+     * C rule: a pointer to a structure always points to it's first member.
      */
-    mk_ptr_t custom_status;
+    int _sched_init;           /* initialized ?     */
+
+    unsigned int protocol_version;
+
+    int status;                 /* Request status */
+    int close_now;              /* Close the session ASAP */
+
+    struct mk_channel *channel;
+    struct mk_sched_conn *conn;
+
+    /* head for mk_http1_request list nodes, each request is linked here */
+    struct mk_list request_list;
+
+    int socket;               /* socket associated */
+
+    /* Server context */
+    struct mk_server *server;
+
+    union {
+        struct mk_http1_session *http_1;
+        struct mk_http2_session *http_2;
+    } additional_data;
+};
+
+struct mk_http_base_response
+{
+    unsigned int protocol_version;
+
+    int status;
 
     /* Length of the content to send */
     long content_length;
 
-    /* Private value, real length of the file requested */
-    long real_length;
-
-    int cgi;
-    int pconnections_left;
-    int breakline;
-
     int transfer_encoding;
-
-    int upgrade;
-
-    int ranges[2];
-
-    time_t last_modified;
-    mk_ptr_t allow_methods;
-    mk_ptr_t content_type;
-    mk_ptr_t content_encoding;
-    char *location;
-
-    int  etag_len;
-    char etag_buf[MK_HEADER_ETAG_SIZE];
-
-    /*
-     * This field allow plugins to add their own response
-     * headers
-     */
-    struct mk_iov *_extra_rows;
 
     /* Flag to track if the response headers were sent */
     int sent;
 
-    /* IOV dirty hack */
-    struct mk_iov headers_iov;
-    struct iovec __iov_io[MK_HEADER_IOV];
-    void *__iov_buf[MK_HEADER_IOV];
+    union {
+        struct mk_http1_response *http_1;
+        struct mk_http2_response *http_2;
+    } additional_data;
 };
 
-struct mk_http_request
+struct mk_http_base_request
 {
+    unsigned int protocol_version;
+
     int status;
+
+    /* 1.x specific sub version (needs to be refactored) */
     int protocol;
+
+    /* Version agnostic fields */
 
     /* is it serving a user's home directory ? */
     int user_home;
 
-    /*-Connection-*/
     long port;
-    /*------------*/
-
-    /* Body Stream size */
-    uint64_t stream_size;
-
-    /* Streams handling: headers and static file */
-    struct mk_stream stream;
-    struct mk_stream_input in_headers;
-    struct mk_stream_input in_headers_extra;
-    struct mk_stream_input in_file;
-    struct mk_stream_input page_stream;
-
-    int headers_len;
 
     /*----First header of client request--*/
     int method;
@@ -110,26 +117,18 @@ struct mk_http_request
 
     mk_ptr_t protocol_p;
 
-    mk_ptr_t body;
-
-    /*---Request headers--*/
     int content_length;
-
     mk_ptr_t _content_length;
     mk_ptr_t content_type;
     mk_ptr_t connection;
 
     mk_ptr_t host;
-    mk_ptr_t host_port;
     mk_ptr_t if_modified_since;
     mk_ptr_t last_modified_since;
     mk_ptr_t range;
 
-    /*---------------------*/
-
-    /* POST/PUT data */
-    mk_ptr_t data;
-    /*-----------------*/
+    /* Body Stream size */
+    uint64_t stream_size;
 
     /*-Internal-*/
     mk_ptr_t real_path;        /* Absolute real path */
@@ -140,9 +139,16 @@ struct mk_http_request
      */
     char real_path_static[MK_PATH_BASE];
 
+    struct mk_stream stream;
+    /* Streams handling: static file */
+    struct mk_stream_input in_file;
+
+    /* POST/PUT data */
+    mk_ptr_t data;
+    /*-----------------*/
+
     /* Query string: ?.... */
     mk_ptr_t query_string;
-
 
     /*
      * STAGE_30 block flag: in mk_http_init() when the file is not found, it
@@ -172,7 +178,7 @@ struct mk_http_request
     unsigned int vhost_fdt_hash;
     int vhost_fdt_enabled;
 
-    struct mk_vhost   *host_conf;      /* root vhost config */
+    struct mk_vhost *host_conf;      /* root vhost config */
     struct mk_vhost_alias *host_alias; /* specific vhost matched */
 
     /*
@@ -181,17 +187,26 @@ struct mk_http_request
      */
     void *handler_data;
 
-    /* Parent Session */
-    struct mk_http_session *session;
+    struct mk_http_base_session *session;
 
     /* coroutine thread (if any) */
     void *thread;
 
+    /* Response */
+    struct mk_http_base_response response;
+
     /* Head to list of requests */
     struct mk_list _head;
 
-    /* Response headers */
-    struct response_headers headers;
+    union {
+        struct mk_http1_request *http_1;
+        struct mk_http2_request *http_2;
+    } additional_data ;
 };
+
+int mk_http_error(int http_status, 
+                  struct mk_http_base_session *cs,
+                  struct mk_http_base_request *sr,
+                  struct mk_server *server);
 
 #endif

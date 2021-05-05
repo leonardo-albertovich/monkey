@@ -23,7 +23,7 @@
 #include <monkey/mk_net.h>
 #include <monkey/mk_vhost.h>
 #include <monkey/mk_http2.h>
-#include <monkey/mk_http_thread.h>
+#include <monkey/mk_http1_thread.h>
 #include <monkey/mk_http2_thread.h>
 
 #include <stdlib.h>
@@ -68,7 +68,7 @@ static inline void thread_cb_init_vars()
 
     if (type == MK_HTTP_THREAD_LIB) {
         /* Invoke the handler callback */
-        handler->cb(request, handler->data);
+        handler->cb(&request->base, handler->data);
 
         /*
          * Once the callback finished, we need to sanitize the connection
@@ -78,7 +78,7 @@ static inline void thread_cb_init_vars()
         struct mk_sched_worker *sched;
         struct mk_channel *channel;
 
-        channel = &request->session->connection->channel;
+        channel = &request->base.session->additional_data.http_2->connection->channel;
         sched = mk_sched_get_thread_conf();
 
         MK_EVENT_NEW(channel->event);
@@ -91,7 +91,7 @@ static inline void thread_cb_init_vars()
         }
 
         /* Save temporal session */
-        mth = request->thread;
+        mth = request->base.thread;
 
         /*
          * Finalize request internally, if ret == -1 means we should
@@ -165,7 +165,7 @@ struct mk_http2_thread *mk_http2_thread_create(int type,
     mth->request = request;
     mth->parent  = th;
     mth->close   = MK_FALSE;
-    request->thread = mth;
+    request->base.thread = mth;
     mk_list_add(&mth->_head, &sched->threads);
 
     th->caller = co_active();

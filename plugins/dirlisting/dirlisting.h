@@ -109,8 +109,8 @@ struct mk_dirhtml_request
     struct mk_iov *iov_footer;
 
     /* Session data */
-    struct mk_http_session *cs;
-    struct mk_http_request *sr;
+    struct mk_http1_session *cs;
+    struct mk_http1_request *sr;
 };
 
 
@@ -175,7 +175,7 @@ struct dirhtml_value *mk_dirhtml_tag_assign(struct mk_list *list,
                                             int tag_id, mk_ptr_t sep,
                                             char *value, char **tags);
 
-struct f_list *get_dir_content(struct mk_http_request *sr, char *path);
+struct f_list *get_dir_content(struct mk_http1_request *sr, char *path);
 
 
 #endif

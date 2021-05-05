@@ -22,7 +22,7 @@
 
 #include <monkey/mk_scheduler.h>
 #include <monkey/mk_core.h>
-#include <monkey/mk_http_parser.h>
+#include <monkey/mk_http1_parser.h>
 
 #define MK_CRLF "\r\n"
 
@@ -101,32 +101,24 @@ extern const mk_ptr_t mk_http_protocol_null_p;
  * keepalive requests.
  */
 
-struct mk_http_session
+struct mk_http1_session
 {
-    /*
-     * The first field of the struct appended to the sched_conn memory
-     * space needs to be an integer, the scheduler will set this flag
-     * to MK_FALSE to indicate it was just created. This work as a helper
-     * to the protocol handler.
-     *
-     * C rule: a pointer to a structure always points to it's first member.
-     */
-    int _sched_init;           /* initialized ?     */
+    struct mk_http_base_session base;
 
-    int socket;                 /* socket associated */
+    //int socket;                 /* socket associated */
     int pipelined;              /* Pipelined request */
     int counter_connections;    /* Count persistent connections */
-    int status;                 /* Request status */
-    int close_now;              /* Close the session ASAP */
+    // int status;                 /* Request status */
+    // int close_now;              /* Close the session ASAP */
 
-    struct mk_channel *channel;
-    struct mk_sched_conn *conn;
+    // struct mk_channel *channel;
+    // struct mk_sched_conn *conn;
 
     unsigned int body_size;
     unsigned int body_length;
 
-    /* head for mk_http_request list nodes, each request is linked here */
-    struct mk_list request_list;
+    /* head for mk_http1_request list nodes, each request is linked here */
+    // struct mk_list request_list;
 
     /* creation time for this HTTP session */
     time_t init_time;
@@ -146,7 +138,7 @@ struct mk_http_session
      *
      * Still testing...
      */
-    struct mk_http_request sr_fixed;
+    struct mk_http1_request sr_fixed;
 
     /*
      * Parser context: we only held one parser per connection
@@ -155,71 +147,71 @@ struct mk_http_session
     struct mk_http_parser parser;
 
     /* Server context */
-    struct mk_server *server;
+    // struct mk_server *server;
 };
 
-static inline int mk_http_status_completed(struct mk_http_session *cs,
+static inline int mk_http_status_completed(struct mk_http1_session *cs,
                                            struct mk_sched_conn *conn)
 {
     (void) conn;
 
-    if (cs->status == MK_REQUEST_STATUS_COMPLETED) {
+    if (cs->base.status == MK_REQUEST_STATUS_COMPLETED) {
         MK_TRACE("HTTP Completed but already completed, aborting conx");
         return -1;
     }
 
-    cs->status = MK_REQUEST_STATUS_COMPLETED;
+    cs->base.status = MK_REQUEST_STATUS_COMPLETED;
     return 0;
 }
 
-int mk_http_error(int http_status, struct mk_http_session *cs,
-                  struct mk_http_request *sr,
+int mk_http1_error(int http_status, struct mk_http1_session *cs,
+                   struct mk_http1_request *sr,
+                   struct mk_server *server);
+
+int mk_http1_method_check(mk_ptr_t method);
+mk_ptr_t mk_http1_method_check_str(int method);
+int mk_http1_method_get(char *body);
+
+int mk_http1_protocol_check(char *protocol, int len);
+mk_ptr_t mk_http1_protocol_check_str(int protocol);
+
+int mk_http1_init(struct mk_http1_session *cs, struct mk_http1_request *sr,
                   struct mk_server *server);
 
-int mk_http_method_check(mk_ptr_t method);
-mk_ptr_t mk_http_method_check_str(int method);
-int mk_http_method_get(char *body);
+int mk_http1_keepalive_check(struct mk_http1_session *cs,
+                             struct mk_http1_request *sr,
+                             struct mk_server *server);
 
-int mk_http_protocol_check(char *protocol, int len);
-mk_ptr_t mk_http_protocol_check_str(int protocol);
-
-int mk_http_init(struct mk_http_session *cs, struct mk_http_request *sr,
-                 struct mk_server *server);
-
-int mk_http_keepalive_check(struct mk_http_session *cs,
-                            struct mk_http_request *sr,
-                            struct mk_server *server);
-
-int mk_http_pending_request(struct mk_http_session *cs);
-int mk_http_send_file(struct mk_http_session *cs, struct mk_http_request *sr);
+int mk_http1_pending_request(struct mk_http1_session *cs);
+int mk_http1_send_file(struct mk_http1_session *cs, struct mk_http1_request *sr);
 
 /* http session */
-int mk_http_session_init(struct mk_http_session *cs,
-                         struct mk_sched_conn *conn,
-                         struct mk_server *server);
-void mk_http_session_remove(struct mk_http_session *cs,
-                            struct mk_server *server);
+int mk_http1_session_init(struct mk_http1_session *cs,
+                          struct mk_sched_conn *conn,
+                          struct mk_server *server);
+void mk_http1_session_remove(struct mk_http1_session *cs,
+                             struct mk_server *server);
 
 /* event handlers */
-int mk_http_handler_read(struct mk_sched_conn *conn, struct mk_http_session *cs,
-                         struct mk_server *server);
-
-int mk_http_handler_write(int socket, struct mk_http_session *cs);
-
-void mk_http_request_free(struct mk_http_request *sr, struct mk_server *server);
-void mk_http_request_free_list(struct mk_http_session *cs,
-                               struct mk_server *server);
-
-void mk_http_request_init(struct mk_http_session *session,
-                          struct mk_http_request *request,
+int mk_http1_handler_read(struct mk_sched_conn *conn, struct mk_http1_session *cs,
                           struct mk_server *server);
-struct mk_http_header *mk_http_header_get(int name, struct mk_http_request *req,
-                                          const char *key, unsigned int len);
 
-int mk_http_request_end(struct mk_http_session *cs, struct mk_server *server);
+int mk_http1_handler_write(int socket, struct mk_http1_session *cs);
 
-#define mk_http_session_get(conn)               \
-    (struct mk_http_session *)                  \
+void mk_http1_request_free(struct mk_http1_request *sr, struct mk_server *server);
+void mk_http1_request_free_list(struct mk_http1_session *cs,
+                                struct mk_server *server);
+
+void mk_http1_request_init(struct mk_http1_session *session,
+                           struct mk_http1_request *request,
+                           struct mk_server *server);
+struct mk_http_header *mk_http1_header_get(int name, struct mk_http1_request *req,
+                                           const char *key, unsigned int len);
+
+int mk_http1_request_end(struct mk_http1_session *cs, struct mk_server *server);
+
+#define mk_http1_session_get(conn)              \
+    (struct mk_http1_session *)                  \
     (((void *) conn) + sizeof(struct mk_sched_conn))
 
 #endif

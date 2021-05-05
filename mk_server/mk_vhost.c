@@ -185,7 +185,7 @@ struct vhost_fdt_hash_chain
 
 
 static inline int mk_vhost_fdt_open(int id, unsigned int hash,
-                                    struct mk_http_request *sr,
+                                    struct mk_http_base_request *sr,
                                     struct mk_server *server)
 {
     int i;
@@ -248,7 +248,7 @@ static inline int mk_vhost_fdt_open(int id, unsigned int hash,
     return fd;
 }
 
-static inline int mk_vhost_fdt_close(struct mk_http_request *sr,
+static inline int mk_vhost_fdt_close(struct mk_http_base_request *sr,
                                      struct mk_server *server)
 {
     int id;
@@ -291,7 +291,21 @@ static inline int mk_vhost_fdt_close(struct mk_http_request *sr,
     return close(sr->in_file.fd);
 }
 
-int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server)
+// int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server)
+// {
+//     int id;
+//     int off;
+//     unsigned int hash;
+
+//     off = sr->host_conf->documentroot.len;
+//     hash = mk_utils_gen_hash(sr->real_path.data + off,
+//                              sr->real_path.len - off);
+//     id   = (hash % VHOST_FDT_HASHTABLE_SIZE);
+
+//     return mk_vhost_fdt_open(id, hash, sr, server);
+// }
+
+int mk_vhost_open(struct mk_http_base_request *sr, struct mk_server *server)
 {
     int id;
     int off;
@@ -300,32 +314,19 @@ int mk_vhost_open_http2(struct mk_http2_request *sr, struct mk_server *server)
     off = sr->host_conf->documentroot.len;
     hash = mk_utils_gen_hash(sr->real_path.data + off,
                              sr->real_path.len - off);
-    id   = (hash % VHOST_FDT_HASHTABLE_SIZE);
+
+    id = (hash % VHOST_FDT_HASHTABLE_SIZE);
 
     return mk_vhost_fdt_open(id, hash, sr, server);
 }
 
-int mk_vhost_open(struct mk_http_request *sr, struct mk_server *server)
-{
-    int id;
-    int off;
-    unsigned int hash;
-
-    off = sr->host_conf->documentroot.len;
-    hash = mk_utils_gen_hash(sr->real_path.data + off,
-                             sr->real_path.len - off);
-    id   = (hash % VHOST_FDT_HASHTABLE_SIZE);
-
-    return mk_vhost_fdt_open(id, hash, sr, server);
-}
-
-int mk_vhost_close(struct mk_http_request *sr, struct mk_server *server)
+int mk_vhost_close(struct mk_http_base_request *sr, struct mk_server *server)
 {
     return mk_vhost_fdt_close(sr, server);
 }
 
 struct mk_vhost_handler *mk_vhost_handler_match(char *match,
-                                                void (*cb)(struct mk_http_request *,
+                                                void (*cb)(struct mk_http_base_request *,
                                                            void *),
                                                 void *data)
 {

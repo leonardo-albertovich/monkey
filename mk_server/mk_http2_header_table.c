@@ -69,7 +69,7 @@ int mk_http2_header_table_entry_create(struct mk_http2_header_table *ctx,
     strncpy(new_entry->name,  name, name_length);
     strncpy(new_entry->value, value, value_length);
 
-    mk_list_add(&new_entry->_head, insertion_point);
+    mk_list_add_after(&new_entry->_head, insertion_point, insertion_point->next);
 
     return 0;
 }

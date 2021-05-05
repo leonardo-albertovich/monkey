@@ -164,7 +164,6 @@ int mk_http2_hpack_write_encoded_integer(size_t   *header_buffer_index,
                                          int64_t   integer_value)
 {
     size_t  octet_count;
-    uint8_t prefix_mask; 
 
     octet_count = (size_t) mk_http2_hpack_encode_int(&header_buffer[*header_buffer_index], 
                                                      integer_value, 
@@ -459,6 +458,8 @@ int mk_http2_hpack_compress_stream_headers(struct mk_http2_session *h2s,
     char *table_header_name;
     char *table_header_value;
 
+    (void) h2s;
+
     required_size = 0;
 
     mk_list_foreach(head, &headers->entries) {
@@ -486,6 +487,8 @@ int mk_http2_hpack_compress_stream_headers(struct mk_http2_session *h2s,
 
     mk_list_foreach(head, &headers->entries) {
         entry = mk_list_entry(head, struct mk_http2_header_table_entry, _head);
+
+        // printf("ENCODING [%s] - [%s] @ %d\n", entry->name, entry->value, output_buffer_index);
 
         result = mk_http2_hpack_fetch_entry_index_from_header_table(stream, entry->name, 
                                                                     &header_index);
@@ -526,7 +529,7 @@ int mk_http2_hpack_compress_stream_headers(struct mk_http2_session *h2s,
                 mk_http2_hpack_write_header_string(&output_buffer_index,
                                                    &output_buffer_remainder,
                                                    output_buffer,
-                                                   entry->value,
+                                                   (uint8_t *)entry->value,
                                                    strlen(entry->value),
                                                    0);
             }
@@ -545,14 +548,14 @@ int mk_http2_hpack_compress_stream_headers(struct mk_http2_session *h2s,
             mk_http2_hpack_write_header_string(&output_buffer_index,
                                                &output_buffer_remainder,
                                                output_buffer,
-                                               entry->name,
+                                               (uint8_t *)entry->name,
                                                strlen(entry->name),
                                                0);
 
             mk_http2_hpack_write_header_string(&output_buffer_index,
                                                &output_buffer_remainder,
                                                output_buffer,
-                                               entry->value,
+                                               (uint8_t *)entry->value,
                                                strlen(entry->value),
                                                0);
         }
