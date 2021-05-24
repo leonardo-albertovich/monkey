@@ -62,6 +62,9 @@ struct mk_http_base_session
     /* head for mk_http1_request list nodes, each request is linked here */
     struct mk_list request_list;
 
+    /* creation time for this HTTP session */
+    time_t init_time;
+
     int socket;               /* socket associated */
 
     /* Server context */

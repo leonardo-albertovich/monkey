@@ -105,23 +105,11 @@ struct mk_http1_session
 {
     struct mk_http_base_session base;
 
-    //int socket;                 /* socket associated */
     int pipelined;              /* Pipelined request */
     int counter_connections;    /* Count persistent connections */
-    // int status;                 /* Request status */
-    // int close_now;              /* Close the session ASAP */
-
-    // struct mk_channel *channel;
-    // struct mk_sched_conn *conn;
 
     unsigned int body_size;
     unsigned int body_length;
-
-    /* head for mk_http1_request list nodes, each request is linked here */
-    // struct mk_list request_list;
-
-    /* creation time for this HTTP session */
-    time_t init_time;
 
     /* request body buffer */
     char *body;
@@ -145,9 +133,6 @@ struct mk_http1_session
      * which is re-used everytime we have a new request.
      */
     struct mk_http_parser parser;
-
-    /* Server context */
-    // struct mk_server *server;
 };
 
 static inline int mk_http_status_completed(struct mk_http1_session *cs,

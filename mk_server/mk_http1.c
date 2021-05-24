@@ -1116,7 +1116,7 @@ static inline void mk_http1_request_ka_next(struct mk_http1_session *cs)
     cs->counter_connections++;
 
     /* Update data for scheduler */
-    cs->init_time = log_current_utime;
+    cs->base.init_time = log_current_utime;
     cs->base.status = MK_REQUEST_STATUS_INCOMPLETE;
 
     /* Initialize parser */
@@ -1424,7 +1424,7 @@ int mk_http1_session_init(struct mk_http1_session *cs, struct mk_sched_conn *con
     cs->base.conn = conn;
 
     /* creation time in unix time */
-    cs->init_time = conn->arrive_time;
+    cs->base.init_time = conn->arrive_time;
 
     /* alloc space for body content */
     if (conn->net->buffer_size > MK_REQUEST_CHUNK) {
